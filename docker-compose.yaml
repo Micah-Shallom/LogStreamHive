@@ -1,0 +1,12 @@
+services:
+  logger:
+    build:
+      context: ./src/services/logger
+    volumes:
+      - ./log-output:/var/log/logger
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=[{time}] [{level}] [{message}]
+      - LOG_INTERVAL_SECONDS=3
