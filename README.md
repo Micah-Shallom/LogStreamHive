@@ -1,1 +1,1 @@
-# distributed-log-processor
+# LogStreamHive
