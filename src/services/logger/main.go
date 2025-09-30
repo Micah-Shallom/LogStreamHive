@@ -1,13 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 	"os"
-	"strings"
-
-	"github.com/gin-gonic/gin"
+	"path/filepath"
+	"runtime"
 )
 
 type LogEntry struct {
@@ -22,10 +19,21 @@ type AppConfig struct {
 	Config
 }
 
-const logFilePath = "/var/log/logger/service.log"
+var logFilePath string
+
+func init() {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Navigate up three levels: logger -> services -> src -> root
+	rootDir := filepath.Join(filepath.Dir(currentFile), "..", "..", "..")
+	logFilePath = filepath.Join(rootDir, "log-output", "service.log")
+
+	logDir := filepath.Dir(logFilePath)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Fatalf("failed to create log directory: %v", err)
+	}
+}
 
 func main() {
-
 	cfg := LoadConfig()
 
 	generator := NewLogGenerator(cfg)
@@ -36,54 +44,4 @@ func main() {
 	if err := router.Run(":8000"); err != nil {
 		log.Fatalf("failed to start Gin server: %v", err)
 	}
-}
-
-func setupRouter() *gin.Engine {
-	router := gin.Default()
-
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	router.GET("/config", configHandler)
-	router.GET("/logs", logsHandler)
-
-	return router
-}
-
-func configHandler(c *gin.Context) {
-	cfg := AppConfig{
-		Config: LoadConfig(),
-	}
-	c.JSON(http.StatusOK, cfg)
-}
-
-func logsHandler(c *gin.Context) {
-	file, err := os.ReadFile(logFilePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
-		return
-	}
-
-	logStrings := strings.Split(strings.TrimSpace(string(file)), "\n")
-	var logs []LogEntry
-
-	for _, logStr := range logStrings {
-		var logEntry LogEntry
-		if err := json.Unmarshal([]byte(logStr), &logEntry); err == nil {
-			logs = append(logs, logEntry)
-		}
-	}
-
-	c.JSON(http.StatusOK, logs)
 }

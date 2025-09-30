@@ -7,7 +7,7 @@ services:
       context: ./src/services/logger
     volumes:
       - ./src/services/logger:/app
-      - ./logs:/logs
+      - ./logs:/var/log/logger
     environment:
       - LOG_RATE=10
       - CONSOLE_OUTPUT=true
