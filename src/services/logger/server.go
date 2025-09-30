@@ -26,8 +26,9 @@ func (app *App) setupRouter() *gin.Engine {
 		c.Next()
 	})
 
-	router.GET("/config", app.configHandler)
 	router.GET("/logs", app.logsHandler)
+	router.GET("/config", app.configHandler)
+	router.GET("/statistics", app.getStatistics)
 
 	return router
 }
