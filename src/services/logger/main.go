@@ -5,18 +5,20 @@ import (
 )
 
 type LogEntry struct {
-	ID        string `json:"id"`
 	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
+	LogType   string `json:"log_type"`
+	UserID    string `json:"user_id"`
+	Duration  int    `json:"duration"`
 	Message   string `json:"message"`
-	Source    string `json:"source"`
+	RequestID string `json:"request_id"`
+	Service   string `json:"service"`
 }
 
 type App struct {
 	Config
 }
 
-func NewApp(cfg Config) *App{
+func NewApp(cfg Config) *App {
 	return &App{Config: cfg}
 }
 

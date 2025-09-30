@@ -54,3 +54,16 @@ func getEnvAsSlice(key string, defaultVal []string, sep string) []string {
 	}
 	return parts
 }
+
+func getEnvAsFloat(key string, defaultVal float64) float64 {
+	valStr := getEnv(key, "")
+	if valStr == "" {
+		return defaultVal
+	}
+	if val, err := strconv.ParseFloat(valStr, 64); err == nil {
+		return val
+	}
+	log.Printf("Invalid float for %s: %s, defaulting to %f", key, valStr, defaultVal)
+	return defaultVal
+}
+

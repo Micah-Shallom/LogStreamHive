@@ -7,14 +7,19 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type LogGenerator struct {
-	cfg    Config
-	logger *log.Logger
+	cfg          Config
+	logger       *log.Logger
+	userSessions map[string]UserSession
+	InBurstMode  bool
+	BurstEndTime time.Time
 }
 
 func NewLogGenerator(cfg Config) *LogGenerator {
@@ -38,8 +43,11 @@ func NewLogGenerator(cfg Config) *LogGenerator {
 
 	multi := io.MultiWriter(writers...)
 	return &LogGenerator{
-		cfg:    cfg,
-		logger: log.New(multi, "", 0),
+		cfg:          cfg,
+		logger:       log.New(multi, "", 0),
+		userSessions: make(map[string]UserSession),
+		InBurstMode:  false,
+		BurstEndTime: time.Now(),
 	}
 }
 
@@ -66,77 +74,96 @@ func (lg *LogGenerator) selectLogType() string {
 
 func (lg *LogGenerator) generateLogMessage() string {
 	logType := lg.selectLogType()
-	messages := map[string][]string{
-		"INFO": {
-			"User logged in successfully",
-			"Page loaded in 0.2 seconds",
-			"Database connection established",
-			"Cache refreshed successfully",
-			"API request completed",
-		},
-		"WARNING": {
-			"High memory usage detected",
-			"API response time exceeding threshold",
-			"Database connection pool running low",
-			"Retry attempt for failed operation",
-			"Cache miss rate increasing",
-		},
-		"ERROR": {
-			"Failed to connect to database",
-			"API request timeout",
-			"Invalid user credentials",
-			"Processing error in data pipeline",
-			"Out of memory error",
-		},
-		"DEBUG": {
-			"Function X called with parameters Y",
-			"SQL query execution details",
-			"Cache lookup performed",
-			"Request headers processed",
-			"Internal state transition",
-		},
-	}
 
-	msgs := messages[logType]
-	message := msgs[rand.Intn(len(msgs))]
+	serviceName := lg.cfg.Services[rand.Intn(len(lg.cfg.Services))]
+	userID := fmt.Sprintf("user-%d", rand.Intn(9000)+1000)
+	requestID := fmt.Sprintf("req-%d-%d", time.Now().Unix(), rand.Intn(9000)+1000)
+	duration := rand.Intn(496) + 5
 	timestamp := time.Now().Format(time.RFC3339)
-	logID := fmt.Sprintf("LOG-%d-%d", time.Now().Unix(), rand.Intn(9000)+1000)
+
+	lg.updateUserSession(userID)
+	message := lg.createMessageFromPattern(logType, userID)
 
 	log_entry := LogEntry{
-		ID:        logID,
-		Message:   message,
 		Timestamp: timestamp,
-		Level:     logType,
-		Source:    "log-generator",
+		LogType:   logType,
+		Service:   serviceName,
+		RequestID: requestID,
+		UserID:    userID,
+		Duration:  duration,
+		Message:   message,
 	}
 
-	log, ok := json.Marshal(log_entry)
-	if ok != nil {
-		panic("unable to marshal log into logentry")
+	switch lg.cfg.LogFormat {
+	case "json":
+		data, err := json.Marshal(log_entry)
+		if err != nil {
+			panic("unable to marshal log entry")
+		}
+		return string(data)
+	case "csv":
+		values := []string{
+			timestamp, logType, serviceName, userID, requestID,
+			strconv.Itoa(duration), message,
+		}
+		return strings.Join(values, ",")
+	default:
+		return fmt.Sprintf("%s [%s] %s [%s] [%s] (%dms): %s",
+			timestamp, logType, serviceName, userID, requestID, duration, message)
 	}
-
-	return string(log)
 }
 
 func (lg *LogGenerator) Run(duration float64) {
-	sleep := time.Second
-	if lg.cfg.LogRate > 0 {
-		sleep = time.Duration(1e9 / float64(lg.cfg.LogRate))
-	}
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	//running in burst mode
+	fmt.Printf("Starting log generator with rate: %d logs/second ", lg.cfg.LogRate)
+	fmt.Printf("Log format: %s", lg.cfg.LogFormat)
+	fmt.Printf("Burst mode enabled: %v", lg.cfg.EnableBursts)
 
 	start := time.Now()
 	count := 0
 
 	for {
+		now := time.Now()
+
+		if lg.cfg.EnableBursts {
+			if !lg.InBurstMode {
+				if rand.Float64() < lg.cfg.BurstFrequency {
+					lg.InBurstMode = true
+					lg.BurstEndTime = now.Add(time.Duration(lg.cfg.BurstDuration * float64(time.Second)))
+					lg.logger.Printf("⚡⚡ Entering burst mode for %.2f seconds", lg.cfg.BurstDuration)
+				}
+			} else {
+				if now.After(lg.BurstEndTime) {
+					lg.InBurstMode = false
+					lg.logger.Println("✓ Exiting burst mode")
+				}
+			}
+		}
+
+		currentRate := float64(lg.cfg.LogRate)
+		if currentRate <= 0 {
+			currentRate = 1.0
+		}
+		if lg.InBurstMode {
+			currentRate = currentRate * float64(lg.cfg.BurstMultiplier)
+		}
+
+		sleep := time.Duration(float64(time.Second) / currentRate)
+		if sleep < time.Nanosecond {
+			sleep = time.Nanosecond
+		}
+
 		LogEntry := lg.generateLogMessage()
 		lg.logger.Println(LogEntry)
 		count++
-
-		time.Sleep(sleep)
 
 		if duration > 0 && time.Since(start).Seconds() >= duration {
 			fmt.Printf("Generated %d log entries\n", count)
 			break
 		}
+
+		time.Sleep(sleep)
 	}
 }

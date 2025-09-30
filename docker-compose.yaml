@@ -11,7 +11,14 @@ services:
     environment:
       - LOG_RATE=10
       - CONSOLE_OUTPUT=true
-      - OUTPUT_FILE=/var/log/logger/service.log
+      - OUTPUT_FILE=./logs/service.log
+      - LOG_FORMAT=json
+      - ENABLE_BURSTS=true
+      - BURST_FREQUENCY=0.1
+      - BURST_MULTIPLIER=5
+      - BURST_DURATION=3
+    ports:
+      - "8000:8000"
 
   client:
     build:
@@ -21,6 +28,6 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://logger:8000    
+      - NEXT_PUBLIC_API_URL=http://log-generator:8000    
     depends_on:
       - log-generator

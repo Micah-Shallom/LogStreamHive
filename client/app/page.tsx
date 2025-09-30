@@ -14,9 +14,11 @@ interface LogEntry {
 }
 
 interface Config {
-  LOG_LEVEL: string
-  LOG_FORMAT: string
-  LOG_INTERVAL_SECONDS: number
+  LOG_RATE: number
+  LOG_TYPES: string[]
+  LOG_DISTRIBUTION: Record<string, number>
+  OUTPUT_FILE: string
+  CONSOLE_OUTPUT: boolean
 }
 
 export default function LoggerDashboard() {
@@ -26,12 +28,6 @@ export default function LoggerDashboard() {
   const [configLoading, setConfigLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
-  const mockConfig: Config = {
-    LOG_LEVEL: "DEBUG",
-    LOG_FORMAT: "json",
-    LOG_INTERVAL_SECONDS: 5,
-  }
-
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 
@@ -40,9 +36,11 @@ export default function LoggerDashboard() {
     try {
       const response = await fetch(`${API_URL}/logs`)
       if (!response.ok){
+        console.error("Response not ok:", response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data: LogEntry[] = await response.json()
+      console.log("Fetched logs:", data)
       setLogs(data.reverse())
     } catch (error) {
       console.error("Failed to fetch logs:", error)
@@ -58,10 +56,12 @@ export default function LoggerDashboard() {
     try {
       const response = await fetch(`${API_URL}/config`)
       if (!response.ok) {
+        console.error("Response not ok:", response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data: Config = await response.json()
+      console.log("Fetched config:", data)
       setConfig(data)
     } catch (error) {
       console.error("Failed to fetch config:", error)
@@ -187,24 +187,49 @@ export default function LoggerDashboard() {
                   <div className="space-y-4">
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Log Level</span>
-                          <Badge className={getLogLevelColor(config.LOG_LEVEL)}>{config.LOG_LEVEL}</Badge>
-                        </div>
 
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Log Format</span>
+                          <span className="text-sm font-medium text-gray-700">Log Rate</span>
                           <span className="text-sm text-gray-900 font-mono bg-white px-2 py-1 rounded border">
-                            {config.LOG_FORMAT}
+                            {config.LOG_RATE} logs/sec
                           </span>
                         </div>
 
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Interval (seconds)</span>
+                          <span className="text-sm font-medium text-gray-700">Log Types</span>
                           <span className="text-sm text-gray-900 font-mono bg-white px-2 py-1 rounded border">
-                            {config.LOG_INTERVAL_SECONDS}
+                            {config.LOG_TYPES.join(", ")}
                           </span>
                         </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-700 mb-1">Log Distribution</span>
+                          <div className="space-y-1">
+                            {Object.entries(config.LOG_DISTRIBUTION).map(([level, weight]) => (
+                              <div key={level} className="flex justify-between items-center">
+                                <span className="text-xs font-medium text-gray-600">{level}</span>
+                                <span className="text-xs font-mono bg-white px-2 py-0.5 rounded border">
+                                  {weight}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">Output File</span>
+                          <span className="text-sm text-gray-900 font-mono bg-white px-2 py-1 rounded border truncate max-w-[200px]">
+                            {config.OUTPUT_FILE}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">Console Output</span>
+                          <Badge variant={config.CONSOLE_OUTPUT ? "default" : "secondary"}>
+                            {config.CONSOLE_OUTPUT ? "Enabled" : "Disabled"}
+                          </Badge>
+                        </div>
+
                       </div>
                     </div>
 
@@ -218,6 +243,7 @@ export default function LoggerDashboard() {
               </CardContent>
             </Card>
           </div>
+
         </div>
       </main>
     </div>
