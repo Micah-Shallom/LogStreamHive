@@ -2,18 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type LogEntry struct {
+	ID        string `json:"id"`
 	Timestamp string `json:"timestamp"`
 	Level     string `json:"level"`
 	Message   string `json:"message"`
@@ -27,36 +25,11 @@ type AppConfig struct {
 const logFilePath = "/var/log/logger/service.log"
 
 func main() {
-	// simple logger service to test environment is working
+
 	cfg := LoadConfig()
 
-	logfile := &lumberjack.Logger{
-		Filename:   logFilePath,
-		MaxSize:    1, //megabytes
-		MaxBackups: 3,
-		MaxAge:     28, //days
-		Compress:   true,
-	}
-
-	multiwriter := io.MultiWriter(os.Stdout, logfile)
-	logger := log.New(multiwriter, "", 0)
-
-	logger.Println(formatLog(cfg.LogFormat, cfg.LogLevel, "Starting distributed logger service..."))
-
-	go func() {
-		for {
-			logEntry := LogEntry{
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
-				Level:     cfg.LogLevel,
-				Message:   "Logger service is running. This will be part of our distributed system!",
-				Source:    "logger-service",
-			}
-
-			logJSON, _ := json.Marshal(logEntry)
-			logger.Println(string(logJSON))
-			time.Sleep(cfg.LogInterval)
-		}
-	}()
+	generator := NewLogGenerator(cfg)
+	go generator.Run(0)
 
 	router := setupRouter()
 	log.Println("Starting Gin server on :8000")

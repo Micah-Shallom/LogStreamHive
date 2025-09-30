@@ -1,17 +1,17 @@
 version: "3.9"
 
 services:
-  logger:
+
+  log-generator:
     build:
       context: ./src/services/logger
     volumes:
-      - ./log-output:/var/log/logger
-    ports:
-      - "8000:8000"
+      - ./src/services/logger:/app
+      - ./logs:/logs
     environment:
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=[{time}] [{level}] [{message}]
-      - LOG_INTERVAL_SECONDS=3
+      - LOG_RATE=10
+      - CONSOLE_OUTPUT=true
+      - OUTPUT_FILE=/var/log/logger/service.log
 
   client:
     build:
@@ -23,4 +23,4 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://logger:8000    
     depends_on:
-      - logger
+      - log-generator
