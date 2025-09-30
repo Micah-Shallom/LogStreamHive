@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Settings, FileText } from "lucide-react"
 
+
 interface LogEntry {
   timestamp: string
   level: string
@@ -25,61 +26,27 @@ export default function LoggerDashboard() {
   const [configLoading, setConfigLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
-  // Mock data for demonstration
-  const mockLogs: LogEntry[] = [
-    {
-      timestamp: "2024-01-15T10:30:45Z",
-      level: "INFO",
-      message: "Application started successfully",
-      source: "main.go:45",
-    },
-    {
-      timestamp: "2024-01-15T10:30:46Z",
-      level: "DEBUG",
-      message: "Database connection established",
-      source: "db.go:23",
-    },
-    {
-      timestamp: "2024-01-15T10:30:47Z",
-      level: "INFO",
-      message: "HTTP server listening on :8080",
-      source: "server.go:67",
-    },
-    {
-      timestamp: "2024-01-15T10:30:50Z",
-      level: "WARN",
-      message: "High memory usage detected: 85%",
-      source: "monitor.go:12",
-    },
-    {
-      timestamp: "2024-01-15T10:30:52Z",
-      level: "ERROR",
-      message: "Failed to process request: timeout exceeded",
-      source: "handler.go:89",
-    },
-    {
-      timestamp: "2024-01-15T10:30:55Z",
-      level: "INFO",
-      message: "Background job completed successfully",
-      source: "worker.go:34",
-    },
-  ]
-
   const mockConfig: Config = {
     LOG_LEVEL: "DEBUG",
     LOG_FORMAT: "json",
     LOG_INTERVAL_SECONDS: 5,
   }
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+
   const fetchLogs = async () => {
     setLogsLoading(true)
     try {
-      // Replace with actual API call: const response = await fetch('/logs')
-      // For now, using mock data
-      await new Promise((resolve) => setTimeout(resolve, 500)) // Simulate API delay
-      setLogs(mockLogs)
+      const response = await fetch(`${API_URL}/logs`)
+      if (!response.ok){
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data: LogEntry[] = await response.json()
+      setLogs(data.reverse())
     } catch (error) {
       console.error("Failed to fetch logs:", error)
+      setLogs([])
     } finally {
       setLogsLoading(false)
       setLastRefresh(new Date())
@@ -89,12 +56,16 @@ export default function LoggerDashboard() {
   const fetchConfig = async () => {
     setConfigLoading(true)
     try {
-      // Replace with actual API call: const response = await fetch('/config')
-      // For now, using mock data
-      await new Promise((resolve) => setTimeout(resolve, 300)) // Simulate API delay
-      setConfig(mockConfig)
+      const response = await fetch(`${API_URL}/config`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data: Config = await response.json()
+      setConfig(data)
     } catch (error) {
       console.error("Failed to fetch config:", error)
+      setConfig(null)
     } finally {
       setConfigLoading(false)
     }
@@ -136,7 +107,7 @@ export default function LoggerDashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <FileText className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Logger Service</h1>
+              <h1 className="text-2xl font-bold text-gray-900">LogStreamHive</h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">Last updated: {lastRefresh.toLocaleTimeString()}</span>

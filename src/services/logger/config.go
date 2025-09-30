@@ -16,13 +16,14 @@ const (
 	CRITICAL = "CRITICAL"
 )
 
-type AppConfig struct {
-	LogLevel    string
-	LogFormat   string
-	LogInterval time.Duration
+type Config struct {
+	LogLevel           string        `json:"LOG_LEVEL"`
+	LogFormat          string        `json:"LOG_FORMAT"`
+	LogInterval        time.Duration `json:"LOG_INTERVAL"`
+	LogIntervalSeconds int        `json:"LOG_INTERVAL_SECONDS"`
 }
 
-func LoadConfig() AppConfig {
+func LoadConfig() Config {
 	logLevel := getEnv("LOG_LEVEL", INFO)
 	logFormat := getEnv("LOG_FORMAT", "[{time}] [{level}] {message}")
 	logFreqStr := getEnv("LOG_INTERVAL_SECONDS", "5")
@@ -30,11 +31,13 @@ func LoadConfig() AppConfig {
 	intervalSec, err := strconv.Atoi(logFreqStr)
 	if err != nil || intervalSec <= 0 {
 		log.Printf("Invalid LOG_INTERVAL_SECONDS: %s, defaulting to 5 seconds", &logFreqStr)
+		intervalSec = 5
 	}
 
-	return AppConfig{
+	return Config{
 		LogLevel:    logLevel,
 		LogFormat:   logFormat,
+		LogIntervalSeconds: intervalSec,
 		LogInterval: time.Duration(intervalSec) * time.Second,
 	}
 }
