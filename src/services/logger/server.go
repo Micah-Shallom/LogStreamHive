@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func setupRouter() *gin.Engine {
+func (app *App) setupRouter() *gin.Engine {
 	router := gin.Default()
 
 	router.Use(func(c *gin.Context) {
@@ -26,26 +26,23 @@ func setupRouter() *gin.Engine {
 		c.Next()
 	})
 
-	router.GET("/config", configHandler)
-	router.GET("/logs", logsHandler)
+	router.GET("/config", app.configHandler)
+	router.GET("/logs", app.logsHandler)
 
 	return router
 }
 
-func configHandler(c *gin.Context) {
-	cfg := AppConfig{
-		Config: LoadConfig(),
-	}
-	c.JSON(http.StatusOK, cfg)
+func (app *App) configHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, app.Config)
 }
 
-func logsHandler(c *gin.Context) {
-	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+func (app *App) logsHandler(c *gin.Context) {
+	if _, err := os.Stat(app.Config.OutputFile); os.IsNotExist(err) {
 		c.JSON(http.StatusOK, []LogEntry{})
 		return
 	}
 
-	file, err := os.ReadFile(logFilePath)
+	file, err := os.ReadFile(app.Config.OutputFile)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
 		return

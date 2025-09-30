@@ -34,7 +34,7 @@ func LoadConfig() Config {
 	//setting up my defaults
 	defaultRate := 5
 	defaultTypes := []string{INFO, WARNING, ERROR, DEBUG}
-	defaultOutputFile := logFilePath
+	defaultOutputFile := "./logs/service.log"
 	defaultConsole := true
 
 	//reading from env
