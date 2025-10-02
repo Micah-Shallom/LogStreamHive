@@ -1,84 +1,69 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
-interface Statistics {
-  logTypeCounts: Record<string, number>;
-  serviceDurations: Record<string, number>;
-  serviceCallCounts: Record<string, number>;
-  errorSequences: ErrorSequence[];
-  anomalyDetections: Anomaly[];
-  updatedAt: string;
-}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { RefreshCw } from "lucide-react"
 
 interface ErrorSequence {
-  startTime: string;
-  endTime: string;
-  count: number;
-  service: string;
+  startTime: string
+  endTime: string
+  count: number
+  service: string
 }
 
 interface Anomaly {
-  timestamp: string;
-  service: string;
-  metricName: string;
-  value: number;
-  threshold: number;
+  timestamp: string
+  service: string
+  metricName: string
+  value: number
+  threshold: number
 }
 
-export default function Statistics() {
-  const [stats, setStats] = useState<Statistics | null>(null)
-  const [loading, setLoading] = useState(true)
+interface Statistics {
+  logTypeCounts: Record<string, number>
+  serviceDurations: Record<string, number>
+  serviceCallCounts: Record<string, number>
+  errorSequences: ErrorSequence[]
+  anomalyDetections: Anomaly[]
+  updatedAt: string
+}
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+interface StatisticsProps {
+  stats: Statistics | null
+  loading: boolean
+  onRefresh: () => void
+}
 
-  const fetchStatistics = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_URL}/statistics`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const res = await response.json()
-      if (res.status !== "success") {
-        throw new Error(res.Message || "Unknown error")
-      }
-
-      const data: Statistics = res.data
-
-      if (!data.logTypeCounts || !data.serviceDurations || !data.serviceCallCounts) {
-        throw new Error("Incomplete statistics data received from server.")
-      }
-
-      console.log(data)
-
-      setStats(data as Statistics)
-    } catch (error) {
-      console.error("Failed to fetch statistics:", error)
-      setStats(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchStatistics()
-  }, [])
-
+export default function Statistics({ stats, loading, onRefresh }: StatisticsProps) {
   if (loading) {
-    return <div>Loading statistics...</div>
+    return (
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        <span className="ml-3 text-gray-500">Loading statistics...</span>
+      </div>
+    )
   }
 
   if (!stats) {
-    return <div>Failed to load statistics.</div>
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <p className="text-gray-500 mb-4">Failed to load statistics.</p>
+          <button
+            onClick={onRefresh}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  const logTypeData = Object.entries(stats.logTypeCounts).map(([name, value]) => ({ name, count: value }));
-  const serviceDurationData = Object.entries(stats.serviceDurations).map(([name, value]) => ({ name, duration: value }));
-  const serviceCallData = Object.entries(stats.serviceCallCounts).map(([name, value]) => ({ name, count: value }));
+  const logTypeData = Object.entries(stats.logTypeCounts).map(([name, value]) => ({ name, count: value }))
+  const serviceDurationData = Object.entries(stats.serviceDurations).map(([name, value]) => ({ name, duration: value }))
+  const serviceCallData = Object.entries(stats.serviceCallCounts).map(([name, value]) => ({ name, count: value }))
 
   return (
     <div className="space-y-8">
@@ -100,6 +85,7 @@ export default function Statistics() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader>
             <CardTitle>Service Durations (avg ms)</CardTitle>
@@ -117,6 +103,7 @@ export default function Statistics() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader>
             <CardTitle>Service Calls</CardTitle>
@@ -135,6 +122,7 @@ export default function Statistics() {
           </CardContent>
         </Card>
       </div>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
@@ -142,14 +130,18 @@ export default function Statistics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {stats.errorSequences?.map((seq, index) => (
-                <div key={index} className="p-2 bg-gray-50 rounded">
-                  <p className="font-mono text-sm">
-                    {seq.service} - {new Date(seq.startTime).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500">Count: {seq.count}</p>
-                </div>
-              )) ?? <p>No error sequences detected</p>}
+              {stats.errorSequences && stats.errorSequences.length > 0 ? (
+                stats.errorSequences.map((seq, index) => (
+                  <div key={index} className="p-2 bg-gray-50 rounded">
+                    <p className="font-mono text-sm">
+                      {seq.service} - {new Date(seq.startTime).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500">Count: {seq.count}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">No error sequences detected</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -160,17 +152,21 @@ export default function Statistics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {stats.anomalyDetections?.map((anomaly, index) => (
-                <div key={index} className="p-2 bg-red-50 border border-red-200 rounded">
-                  <p className="font-bold text-sm text-red-800">{anomaly.metricName}</p>
-                  <p className="text-xs text-red-600">
-                    Service: {anomaly.service} - Value: {anomaly.value} (Threshold: {anomaly.threshold})
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(anomaly.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              )) ?? <p>No anomalies detected</p>}
+              {stats.anomalyDetections && stats.anomalyDetections.length > 0 ? (
+                stats.anomalyDetections.map((anomaly, index) => (
+                  <div key={index} className="p-2 bg-red-50 border border-red-200 rounded">
+                    <p className="font-bold text-sm text-red-800">{anomaly.metricName}</p>
+                    <p className="text-xs text-red-600">
+                      Service: {anomaly.service} - Value: {anomaly.value} (Threshold: {anomaly.threshold})
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(anomaly.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">No anomalies detected</p>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -32,38 +32,65 @@ interface Config {
   BURST_DURATION: number
 }
 
+interface Statistics {
+  logTypeCounts: Record<string, number>
+  serviceDurations: Record<string, number>
+  serviceCallCounts: Record<string, number>
+  errorSequences: ErrorSequence[]
+  anomalyDetections: Anomaly[]
+  updatedAt: string
+}
+
+interface ErrorSequence {
+  startTime: string
+  endTime: string
+  count: number
+  service: string
+}
+
+interface Anomaly {
+  timestamp: string
+  service: string
+  metricName: string
+  value: number
+  threshold: number
+}
+
 export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [config, setConfig] = useState<Config | null>(null)
+  const [stats, setStats] = useState<Statistics | null>(null)
+  
   const [logsLoading, setLogsLoading] = useState(true)
   const [configLoading, setConfigLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
+  
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   const fetchLogs = async () => {
     setLogsLoading(true)
-        try {
-        const response = await fetch(`${API_URL}/logs`)
-        if (!response.ok){
-            console.error("Response not ok:", response.statusText)
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const res = await response.json()
-        if (res.status !== "success") {
-            throw new Error(res.Message || "Unknown error")
-        }
+    try {
+      const response = await fetch(`${API_URL}/logs`)
+      if (!response.ok) {
+        console.error("Response not ok:", response.statusText)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
 
-        const data: LogEntry[] = res.data || []
-        setLogs(data.reverse())
-        } catch (error) {
-        console.error("Failed to fetch logs:", error)
-        setLogs([])
-        } finally {
-        setLogsLoading(false)
-        setLastRefresh(new Date())
-        }
+      const data: LogEntry[] = res.data || []
+      setLogs(data.reverse())
+    } catch (error) {
+      console.error("Failed to fetch logs:", error)
+      setLogs([])
+    } finally {
+      setLogsLoading(false)
+      setLastRefresh(new Date())
+    }
   }
 
   const fetchConfig = async () => {
@@ -80,7 +107,7 @@ export default function Dashboard() {
         throw new Error(res.Message || "Unknown error")
       }
       
-      const data: Config = await res.data 
+      const data: Config = res.data 
       setConfig(data)
     } catch (error) {
       console.error("Failed to fetch config:", error)
@@ -90,16 +117,50 @@ export default function Dashboard() {
     }
   }
 
-  useEffect(() => {
+  const fetchStatistics = async () => {
+    setStatsLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/statistics`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
+
+      const data: Statistics = res.data
+
+      if (!data.logTypeCounts || !data.serviceDurations || !data.serviceCallCounts) {
+        throw new Error("Incomplete statistics data received from server.")
+      }
+
+      setStats(data)
+    } catch (error) {
+      console.error("Failed to fetch statistics:", error)
+      setStats(null)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  const refreshAll = () => {
     fetchLogs()
     fetchConfig()
+    fetchStatistics()
+  }
+
+  useEffect(() => {
+    // Initial fetch of all data
+    fetchLogs()
+    fetchConfig()
+    fetchStatistics()
 
     // Auto-refresh logs every 10 seconds
     const interval = setInterval(fetchLogs, 10000)
     return () => clearInterval(interval)
   }, [])
-
-  
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -114,11 +175,11 @@ export default function Dashboard() {
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">Last updated: {lastRefresh.toLocaleTimeString()}</span>
               <button
-                onClick={fetchLogs}
-                disabled={logsLoading}
+                onClick={refreshAll}
+                disabled={logsLoading || configLoading || statsLoading}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${logsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${(logsLoading || configLoading || statsLoading) ? "animate-spin" : ""}`} />
                 Refresh
               </button>
             </div>
@@ -134,13 +195,29 @@ export default function Dashboard() {
           </TabsList>
           
           <TabsContent value="logs">
-            <LoggerDashboard />
-              {/* Current Configuration Section */}
-              <ConfigDashboard />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
+              <div className="lg:col-span-2">
+                <LoggerDashboard 
+                  logs={logs} 
+                  loading={logsLoading}
+                  onRefresh={fetchLogs}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <ConfigDashboard 
+                  config={config} 
+                  loading={configLoading}
+                />
+              </div>
+            </div>
           </TabsContent>
           
           <TabsContent value="statistics">
-            <Statistics />
+            <Statistics 
+              stats={stats}
+              loading={statsLoading}
+              onRefresh={fetchStatistics}
+            />
           </TabsContent>
         </Tabs>
       </main>
