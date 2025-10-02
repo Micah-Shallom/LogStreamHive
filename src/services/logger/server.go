@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"strings"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,41 +36,43 @@ func (app *App) setupRouter() *gin.Engine {
 func (app *App) configHandler(c *gin.Context) {
 	rd := BuildSuccessResponse(http.StatusOK, "Configuration retrieved successfully", app.Config)
 	c.JSON(http.StatusOK, rd)
-	return
 }
 
 func (app *App) getStatistics(c *gin.Context) {
 	stats := analyzeLogFiles(app)
 	rd := BuildSuccessResponse(http.StatusOK, "Statistics retrieved successfully", stats)
 	c.JSON(http.StatusOK, rd)
-	return
 }
 
 func (app *App) logsHandler(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 {
+		limit = 10
+	}
+
 	if _, err := os.Stat(app.Config.OutputFile); os.IsNotExist(err) {
 		rd := BuildErrorResponse(http.StatusNotFound, "error", "Log file not found", err, []LogEntry{})
 		c.JSON(http.StatusNotFound, rd)
 		return
 	}
 
-	file, err := os.ReadFile(app.Config.OutputFile)
+	lines, err := tailLogs(app.Config.OutputFile, limit)
 	if err != nil {
-		rd := BuildErrorResponse(http.StatusInternalServerError, "error", "Failed to read log file", err, []LogEntry{})
+		rd := BuildErrorResponse(http.StatusInternalServerError, "error", "Failed to read logs", err, []LogEntry{})
 		c.JSON(http.StatusInternalServerError, rd)
 		return
 	}
 
-	logStrings := strings.Split(strings.TrimSpace(string(file)), "\n")
 	var logs []LogEntry
-
-	for _, logStr := range logStrings {
-		var logEntry LogEntry
-		if err := json.Unmarshal([]byte(logStr), &logEntry); err == nil {
-			logs = append(logs, logEntry)
+	for _, line := range lines {
+		var entry LogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			continue
 		}
+		logs = append(logs, entry)
 	}
 
 	rd := BuildSuccessResponse(http.StatusOK, "Logs retrieved successfully", logs)
 	c.JSON(http.StatusOK, rd)
-	return
 }

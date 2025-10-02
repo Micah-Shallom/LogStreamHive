@@ -15,7 +15,7 @@ type Statistics struct {
 	ServiceDurations  map[string]float64 `json:"serviceDurations"`
 	ServiceCallCounts map[string]int     `json:"serviceCallCounts"`
 	ErrorSequences    ErrorSequences     `json:"errorSequences"`
-	AnomalyDetections Anomalys           `json:"anomaylDetections"`
+	AnomalyDetections Anomalys           `json:"anomalyDetections"`
 	UpdatedAt         time.Time          `json:"updatedAt"`
 }
 

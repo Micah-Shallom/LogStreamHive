@@ -41,7 +41,7 @@ func LoadConfig() Config {
 	defaultTypes := []string{INFO, WARNING, ERROR, DEBUG}
 	defaultOutputFile := "./logs/service.log"
 	defaultConsole := true
-	defaultFormat := "text"
+	defaultFormat := "json"
 	defaultServices := []string{"user-service", "payment-service", "inventory-service", "notification-service"}
 
 	//reading from env

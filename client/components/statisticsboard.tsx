@@ -41,7 +41,13 @@ export default function Statistics() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data: Statistics = await response.json()
+
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
+
+      const data: Statistics = res.data
 
       if (!data.logTypeCounts || !data.serviceDurations || !data.serviceCallCounts) {
         throw new Error("Incomplete statistics data received from server.")

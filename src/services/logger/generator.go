@@ -132,12 +132,12 @@ func (lg *LogGenerator) Run(duration float64) {
 				if rand.Float64() < lg.cfg.BurstFrequency {
 					lg.InBurstMode = true
 					lg.BurstEndTime = now.Add(time.Duration(lg.cfg.BurstDuration * float64(time.Second)))
-					lg.logger.Printf("⚡⚡ Entering burst mode for %.2f seconds", lg.cfg.BurstDuration)
+					// lg.logger.Printf("⚡⚡ Entering burst mode for %.2f seconds", lg.cfg.BurstDuration)
 				}
 			} else {
 				if now.After(lg.BurstEndTime) {
 					lg.InBurstMode = false
-					lg.logger.Println("✓ Exiting burst mode")
+					// lg.logger.Println("✓ Exiting burst mode")
 				}
 			}
 		}
@@ -155,8 +155,8 @@ func (lg *LogGenerator) Run(duration float64) {
 			sleep = time.Nanosecond
 		}
 
-		// LogEntry := lg.generateLogMessage()
-		// lg.logger.Println(LogEntry)
+		LogEntry := lg.generateLogMessage()
+		lg.logger.Println(LogEntry)
 		count++
 
 		if duration > 0 && time.Since(start).Seconds() >= duration {
