@@ -1,17 +1,24 @@
 version: "3.9"
 
 services:
-  logger:
+
+  log-generator:
     build:
       context: ./src/services/logger
     volumes:
-      - ./log-output:/var/log/logger
+      - ./src/services/logger:/app
+      - ./logs:/var/log/logger
+    environment:
+      - LOG_RATE=10
+      - CONSOLE_OUTPUT=true
+      - OUTPUT_FILE=./logs/service.log
+      - LOG_FORMAT=json
+      - ENABLE_BURSTS=true
+      - BURST_FREQUENCY=0.1
+      - BURST_MULTIPLIER=5
+      - BURST_DURATION=3
     ports:
       - "8000:8000"
-    environment:
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=[{time}] [{level}] [{message}]
-      - LOG_INTERVAL_SECONDS=3
 
   client:
     build:
@@ -21,6 +28,6 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://logger:8000    
+      - NEXT_PUBLIC_API_URL=http://log-generator:8000    
     depends_on:
-      - logger
+      - log-generator

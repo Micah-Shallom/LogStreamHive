@@ -65,3 +65,4 @@ dist/
 static
 cache
 server
+logs

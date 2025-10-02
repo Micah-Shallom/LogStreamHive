@@ -1,6 +1,6 @@
 # LogStreamHive
-
-<img width="1382" height="672" alt="image" src="https://github.com/user-attachments/assets/56bd127a-f2cb-4550-98d7-ee728d92a5bb" />
+<img width="1164" height="925" alt="Screenshot from 2025-10-02 18-09-50" src="https://github.com/user-attachments/assets/2435c966-b7f5-4449-8e12-04edc0a7c8e3" />
+<img width="1882" height="726" alt="Screenshot from 2025-10-02 18-10-09" src="https://github.com/user-attachments/assets/7fb2facb-a105-4845-a85b-aea4f9141169" />
 
 ## Features
 

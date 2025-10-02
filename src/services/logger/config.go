@@ -1,11 +1,7 @@
 package main
 
 import (
-	"log"
-	"os"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -16,43 +12,69 @@ const (
 	CRITICAL = "CRITICAL"
 )
 
+var defaultLogDistribution = map[string]int{
+	"INFO":    70,
+	"WARNING": 20,
+	"ERROR":   5,
+	"DEBUG":   5,
+}
+
 type Config struct {
-	LogLevel           string        `json:"LOG_LEVEL"`
-	LogFormat          string        `json:"LOG_FORMAT"`
-	LogInterval        time.Duration `json:"LOG_INTERVAL"`
-	LogIntervalSeconds int        `json:"LOG_INTERVAL_SECONDS"`
+	LogRate         int            `json:"LOG_RATE"`
+	LogTypes        []string       `json:"LOG_TYPES"`
+	LogDistribution map[string]int `json:"LOG_DISTRIBUTION"`
+	OutputFile      string         `json:"OUTPUT_FILE"`
+	ConsoleOutput   bool           `json:"CONSOLE_OUTPUT"`
+
+	LogFormat       string   `json:"LOG_FORMAT"`
+	Services        []string `json:"SERVICES"`
+	EnableBursts    bool     `json:"ENABLE_BURSTS"`
+	BurstFrequency  float64  `json:"BURST_FREQUENCY"`
+	BurstMultiplier int      `json:"BURST_MULTIPLIER"`
+	BurstDuration   float64  `json:"BURST_DURATION"`
 }
 
 func LoadConfig() Config {
-	logLevel := getEnv("LOG_LEVEL", INFO)
-	logFormat := getEnv("LOG_FORMAT", "[{time}] [{level}] {message}")
-	logFreqStr := getEnv("LOG_INTERVAL_SECONDS", "5")
 
-	intervalSec, err := strconv.Atoi(logFreqStr)
-	if err != nil || intervalSec <= 0 {
-		log.Printf("Invalid LOG_INTERVAL_SECONDS: %s, defaulting to 5 seconds", &logFreqStr)
-		intervalSec = 5
+	//setting up my defaults
+	defaultRate := 5
+	defaultTypes := []string{INFO, WARNING, ERROR, DEBUG}
+	defaultOutputFile := "./logs/service.log"
+	defaultConsole := true
+	defaultFormat := "json"
+	defaultServices := []string{"user-service", "payment-service", "inventory-service", "notification-service"}
+
+	//reading from env
+	rate := getEnvAsInt("LOG_RATE", defaultRate)
+	types := getEnvAsSlice("LOG_TYPES", defaultTypes, ",")
+	console := getEnvAsBool("CONSOLE_OUTPUT", defaultConsole)
+	services := getEnvAsSlice("SERVICES", defaultServices, ",")
+	logFormat := getEnv("LOG_FORMAT", defaultFormat)
+	outputFile := getEnv("OUTPUT_FILE", defaultOutputFile)
+
+	distribution := make(map[string]int)
+	for _, t := range types {
+		key := "LOG_DIST" + strings.ToUpper(t)
+		defaultVal := defaultLogDistribution[strings.ToUpper(t)]
+		distribution[strings.ToUpper(t)] = getEnvAsInt(key, defaultVal)
 	}
+
+	enableBursts := getEnvAsBool("ENABLE_BURSTS", true)
+	burstDuration := getEnvAsFloat("BURST_DURATION", 3.0)
+	burstFrequency := getEnvAsFloat("BURST_FREQUENCY", 0.05)
+	burstMultiplier := getEnvAsInt("BURST_MULTIPLIER", 5)
 
 	return Config{
-		LogLevel:    logLevel,
-		LogFormat:   logFormat,
-		LogIntervalSeconds: intervalSec,
-		LogInterval: time.Duration(intervalSec) * time.Second,
+		LogRate:         rate,
+		LogTypes:        types,
+		LogDistribution: distribution,
+		OutputFile:      outputFile,
+		ConsoleOutput:   console,
+		LogFormat:       logFormat,
+		Services:        services,
+		EnableBursts:    enableBursts,
+		BurstFrequency:  burstFrequency,
+		BurstMultiplier: burstMultiplier,
+		BurstDuration:   burstDuration,
 	}
-}
-
-func getEnv(key, defaultValue string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
-	}
-	return defaultValue
-}
-
-func formatLog(format, level, message string) string {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	output := strings.ReplaceAll(format, "{time}", timestamp)
-	output = strings.ReplaceAll(output, "{level}", level)
-	output = strings.ReplaceAll(output, "{message}", message)
-	return output
 }
