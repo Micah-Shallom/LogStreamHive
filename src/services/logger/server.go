@@ -34,18 +34,29 @@ func (app *App) setupRouter() *gin.Engine {
 }
 
 func (app *App) configHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, app.Config)
+	rd := BuildSuccessResponse(http.StatusOK, "Configuration retrieved successfully", app.Config)
+	c.JSON(http.StatusOK, rd)
+	return
+}
+
+func (app *App) getStatistics(c *gin.Context) {
+	stats := analyzeLogFiles(app)
+	rd := BuildSuccessResponse(http.StatusOK, "Statistics retrieved successfully", stats)
+	c.JSON(http.StatusOK, rd)
+	return
 }
 
 func (app *App) logsHandler(c *gin.Context) {
 	if _, err := os.Stat(app.Config.OutputFile); os.IsNotExist(err) {
-		c.JSON(http.StatusOK, []LogEntry{})
+		rd := BuildErrorResponse(http.StatusNotFound, "error", "Log file not found", err, []LogEntry{})
+		c.JSON(http.StatusNotFound, rd)
 		return
 	}
 
 	file, err := os.ReadFile(app.Config.OutputFile)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read log file"})
+		rd := BuildErrorResponse(http.StatusInternalServerError, "error", "Failed to read log file", err, []LogEntry{})
+		c.JSON(http.StatusInternalServerError, rd)
 		return
 	}
 
@@ -59,5 +70,7 @@ func (app *App) logsHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, logs)
+	rd := BuildSuccessResponse(http.StatusOK, "Logs retrieved successfully", logs)
+	c.JSON(http.StatusOK, rd)
+	return
 }

@@ -155,8 +155,8 @@ func (lg *LogGenerator) Run(duration float64) {
 			sleep = time.Nanosecond
 		}
 
-		LogEntry := lg.generateLogMessage()
-		lg.logger.Println(LogEntry)
+		// LogEntry := lg.generateLogMessage()
+		// lg.logger.Println(LogEntry)
 		count++
 
 		if duration > 0 && time.Since(start).Seconds() >= duration {

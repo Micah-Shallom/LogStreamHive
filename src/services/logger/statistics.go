@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type ErrorSequences []ErrorSequence
@@ -34,11 +32,6 @@ type Anomaly struct {
 	MetricName string    `json:"metricName"`
 	Value      float64   `json:"value"`
 	Threshold  float64   `json:"threshold"`
-}
-
-func (app *App) getStatistics(c *gin.Context) {
-	stats := analyzeLogFiles(app)
-	c.JSON(200, stats)
 }
 
 func analyzeLogFiles(cfg *App) Statistics {
@@ -90,64 +83,62 @@ func analyzeEntries(stats *Statistics, entries []LogEntry) {
 }
 
 func detectErrorSequences(entries []LogEntry) ErrorSequences {
-    sequences := ErrorSequences{}
-    currentSequence := ErrorSequence{}
-    errorCount := 0
+	sequences := ErrorSequences{}
+	currentSequence := ErrorSequence{}
+	errorCount := 0
 
-    for i, entry := range entries {
-        if entry.LogType == "ERROR" {
-            errorCount++
-            if errorCount == 1 {
-                currentSequence.StartTime, _ = time.Parse(time.RFC3339, entry.Timestamp)
-                currentSequence.Service = entry.Service
-            }
-        } else {
-            if errorCount >= 3 {
-                currentSequence.EndTime, _ = time.Parse(time.RFC3339, entries[i-1].Timestamp)
-                currentSequence.Count = errorCount
-                sequences = append(sequences, currentSequence)
-            }
-            errorCount = 0
-        }
-    }
+	for i, entry := range entries {
+		if entry.LogType == "ERROR" {
+			errorCount++
+			if errorCount == 1 {
+				currentSequence.StartTime, _ = time.Parse(time.RFC3339, entry.Timestamp)
+				currentSequence.Service = entry.Service
+			}
+		} else {
+			if errorCount >= 3 {
+				currentSequence.EndTime, _ = time.Parse(time.RFC3339, entries[i-1].Timestamp)
+				currentSequence.Count = errorCount
+				sequences = append(sequences, currentSequence)
+			}
+			errorCount = 0
+		}
+	}
 
-    return sequences
+	return sequences
 }
-
 
 func detectAnomalies(entries []LogEntry) []Anomaly {
-    anomalies := []Anomaly{}
-    
-    // Calculate baseline metrics
-    baselineDuration := calculateBaselineDuration(entries)
-    
-    // Detect duration anomalies
-    for _, entry := range entries {
-        if float64(entry.Duration) > baselineDuration*2 {
-            timestamp, _ := time.Parse(time.RFC3339, entry.Timestamp)
-            anomalies = append(anomalies, Anomaly{
-                Timestamp:  timestamp,
-                Service:    entry.Service,
-                MetricName: "duration",
-                Value:      float64(entry.Duration),
-                Threshold:  baselineDuration * 2,
-            })
-        }
-    }
+	anomalies := []Anomaly{}
 
-    return anomalies
+	// Calculate baseline metrics
+	baselineDuration := calculateBaselineDuration(entries)
+
+	// Detect duration anomalies
+	for _, entry := range entries {
+		if float64(entry.Duration) > baselineDuration*2 {
+			timestamp, _ := time.Parse(time.RFC3339, entry.Timestamp)
+			anomalies = append(anomalies, Anomaly{
+				Timestamp:  timestamp,
+				Service:    entry.Service,
+				MetricName: "duration",
+				Value:      float64(entry.Duration),
+				Threshold:  baselineDuration * 2,
+			})
+		}
+	}
+
+	return anomalies
 }
 
-
 func calculateBaselineDuration(entries []LogEntry) float64 {
-    if len(entries) == 0 {
-        return 0
-    }
+	if len(entries) == 0 {
+		return 0
+	}
 
-    var total float64
-    for _, entry := range entries {
-        total += float64(entry.Duration)
-    }
+	var total float64
+	for _, entry := range entries {
+		total += float64(entry.Duration)
+	}
 
-    return total / float64(len(entries))
+	return total / float64(len(entries))
 }

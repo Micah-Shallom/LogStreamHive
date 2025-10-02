@@ -66,4 +66,3 @@ func getEnvAsFloat(key string, defaultVal float64) float64 {
 	log.Printf("Invalid float for %s: %s, defaulting to %f", key, valStr, defaultVal)
 	return defaultVal
 }
-
