@@ -1,10 +1,13 @@
 package main
 
-import "log"
+import (
+	"log"
+)
 
 func main() {
-	service, err := NewLogCollectorService("config.yml")
-	if err != nil{
+
+	service, err := NewLogCollectorService("/app/config.yml")
+	if err != nil {
 		log.Fatalf("failed to create collector service: %v", err)
 	}
 

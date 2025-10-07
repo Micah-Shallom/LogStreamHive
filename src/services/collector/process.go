@@ -14,13 +14,14 @@ import (
 )
 
 type LogCollectorService struct {
-	config   Config
-	handlers map[string]*LogFileHandler
-	watcher  *fsnotify.Watcher
-	logger   *log.Logger
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	config           Config
+	handlers         map[string]*LogFileHandler
+	watcher          *fsnotify.Watcher
+	logger           *log.Logger
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	centrifugoClient CentrifugoClient
 }
 
 func NewLogCollectorService(configPath string) (*LogCollectorService, error) {
@@ -39,19 +40,39 @@ func NewLogCollectorService(configPath string) (*LogCollectorService, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Initialize Centrifugo client if API key is provided
+	var centrifugoClient *CentrifugoClient
+	if config.Centrifugo.APIKey != "" {
+		centrifugoClient, err = NewCentrifugoClient(config.Centrifugo, logger)
+		if err != nil {
+			logger.Printf("⚠ Warning: Failed to initialize Centrifugo client: %v", err)
+			logger.Println("⚠ Continuing without websocket publishing")
+		}
+	} else {
+		logger.Println("⚠ Centrifugo API key not provided, running without websocket publishing")
+	}
+
 	service := &LogCollectorService{
-		config:   config,
-		handlers: make(map[string]*LogFileHandler),
-		watcher:  watcher,
-		logger:   logger,
-		ctx:      ctx,
-		cancel:   cancel,
+		config:           config,
+		handlers:         make(map[string]*LogFileHandler),
+		watcher:          watcher,
+		logger:           logger,
+		ctx:              ctx,
+		cancel:           cancel,
+		centrifugoClient: *centrifugoClient,
 	}
 
 	return service, nil
 }
 
 func (s *LogCollectorService) Start() error {
+	centrifugoClient, err := NewCentrifugoClient(s.config.Centrifugo, s.logger)
+	if err != nil {
+		s.logger.Printf("⚠ Warning: Failed to initialize Centrifugo client: %v", err)
+		s.logger.Println("⚠ Continuing without websocket publishing")
+	}
+	channelID := "logs"
+
 	for _, logFilePath := range s.config.LogFiles {
 
 		absPath, err := filepath.Abs(logFilePath)
@@ -76,7 +97,7 @@ func (s *LogCollectorService) Start() error {
 		}
 
 		//setup handler for this log file
-		handler, err := NewLogFileHandler(absPath, s.logger)
+		handler, err := NewLogFileHandler(absPath, s.logger, centrifugoClient, channelID)
 		if err != nil {
 			return fmt.Errorf("failed to create handler for %s: %w", absPath, err)
 		}

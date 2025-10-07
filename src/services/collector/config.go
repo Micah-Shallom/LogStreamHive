@@ -7,27 +7,34 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	LogFiles      []string `json:"log_files"`
-	CheckInterval float64  `json:"check_interval"`
+	LogFiles      []string         `json:"log_files"`
+	CheckInterval float64          `json:"check_interval"`
+	Centrifugo    CentrifugoConfig `json:"centrifugo"`
+	ChannelID     string           `json:"channel_id"`
 }
 
 type LogFileHandler struct {
-	filePath     string
-	lastPosition int64
-	mu           sync.Mutex
-	logger       *log.Logger
+	filePath         string
+	lastPosition     int64
+	mu               sync.Mutex
+	logger           *log.Logger
+	centrifugoClient *CentrifugoClient
+	channelID        string
 }
 
-func NewLogFileHandler(filePath string, logger *log.Logger) (*LogFileHandler, error) {
+func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, channelID string) (*LogFileHandler, error) {
 	handler := &LogFileHandler{
-		filePath:     filePath,
-		lastPosition: 0,
-		logger:       logger,
+		filePath:         filePath,
+		lastPosition:     0,
+		logger:           logger,
+		channelID:        channelID,
+		centrifugoClient: centrifugoClient,
 	}
 
 	// Initialize position at end of file
@@ -84,6 +91,17 @@ func (h *LogFileHandler) collectNewLogs() error {
 		line := scanner.Text()
 		if len(line) > 0 {
 			fmt.Printf("Collected: %s\n", line)
+			if h.centrifugoClient != nil {
+				logMsg := LogMessage{
+					Timestamp: time.Now().Format(time.RFC3339),
+					FilePath:  h.filePath,
+					Line:      line,
+				}
+				if err := h.centrifugoClient.PublishLog(h.channelID, logMsg); err != nil {
+					h.logger.Printf("Failed to publish log to Centrifugo channel '%s': %v", h.channelID, err)
+				}
+			}
+
 			hasNewContent = true
 		}
 	}
@@ -108,8 +126,13 @@ func (h *LogFileHandler) collectNewLogs() error {
 func loadConfig(configPath string, logger *log.Logger) (Config, error) {
 	// Default configuration
 	config := Config{
-		LogFiles:      []string{"../generator/logs/service.log"},
+		LogFiles:      []string{"/app/logs/service.log"},
 		CheckInterval: 0.5,
+		Centrifugo: CentrifugoConfig{
+			APIKey: "",
+			URL:    "http://localhost:8080",
+		},
+		ChannelID: "logs",
 	}
 
 	// Try to load from file
@@ -133,5 +156,6 @@ func loadConfig(configPath string, logger *log.Logger) (Config, error) {
 	}
 
 	logger.Printf("Monitoring log files: %v", config.LogFiles)
+	logger.Printf("Publishing to channel: %s", config.ChannelID)
 	return config, nil
 }
