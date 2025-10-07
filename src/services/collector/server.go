@@ -41,39 +41,47 @@ func corsMiddleware() gin.HandlerFunc {
 func (app *App) connTokenHandler(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
+		rd := BuildErrorResponse(http.StatusBadRequest, "error", "missing id parameter", "id parameter is required", nil)
+		c.JSON(http.StatusBadRequest, rd)
 		return
 	}
 
 	resp, code, err := app.getConnToken(id)
 	if err != nil {
-		c.JSON(code, gin.H{"error": err.Error()})
+		rd := BuildErrorResponse(code, "error", "failed to generate connection token", err.Error(), nil)
+		c.JSON(code, rd)
 		return
 	}
 
-	c.JSON(code, resp)
+	rd := BuildSuccessResponse(code, "connection token generated successfully", resp)
+	c.JSON(code, rd)
 }
 
 func (app *App) subTokenHandler(c *gin.Context) {
+	var req ChannelSubTokenReq
+
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
+		rd := BuildErrorResponse(http.StatusBadRequest, "error", "missing id parameter", "id parameter is required", nil)
+		c.JSON(http.StatusBadRequest, rd)
 		return
 	}
 
-	var req ChannelSubTokenReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		rd := BuildErrorResponse(http.StatusBadRequest, "error", "invalid request body", err.Error(), nil)
+		c.JSON(http.StatusBadRequest, rd)
 		return
 	}
 
 	resp, code, err := app.getSubToken(id, req)
 	if err != nil {
-		c.JSON(code, gin.H{"error": err.Error()})
+		rd := BuildErrorResponse(code, "error", "failed to generate subscription token", err.Error(), nil)
+		c.JSON(code, rd)
 		return
 	}
 
-	c.JSON(code, resp)
+	rd := BuildSuccessResponse(code, "subscription token generated successfully", resp)
+	c.JSON(code, rd)
 }
 
 type ChannelSubTokenReq struct {

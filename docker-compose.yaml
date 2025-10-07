@@ -50,6 +50,8 @@ services:
       - log-generator
     networks:
       - app_network
+    ports:
+      - "8081:8080"
     restart: unless-stopped
 
   client:

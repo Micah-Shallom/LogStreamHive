@@ -1,11 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { RefreshCw, FileText } from "lucide-react"
+import { Centrifuge } from "centrifuge";
+import { RefreshCw, FileText, Settings } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import Statistics from "@/components/statisticsboard"
 import ConfigDashboard from "@/components/configboard"
 import LoggerDashboard from "@/components/logsboard"
+import CollectorDashboard from "@/components/collectorboard"
 
 interface LogEntry {
   timestamp: string
@@ -58,6 +68,7 @@ interface Anomaly {
 
 export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [collectorLogs, setCollectorLogs] = useState<LogEntry[]>([])
   const [config, setConfig] = useState<Config | null>(null)
   const [stats, setStats] = useState<Statistics | null>(null)
   
@@ -67,7 +78,8 @@ export default function Dashboard() {
   
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+  const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://centrifugo:8000/connection/websocket"
 
   const fetchLogs = async () => {
     setLogsLoading(true)
@@ -159,7 +171,35 @@ export default function Dashboard() {
 
     // Auto-refresh logs every 10 seconds
     const interval = setInterval(fetchLogs, 10000)
-    return () => clearInterval(interval)
+    
+    const centrifuge = new Centrifuge("ws://localhost:8000/connection/websocket", {
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM3MjIiLCJleHAiOjE2NTU0NDgyOTl9.mUU9s5kj3yqp-SAEqloGy8QBgsLg0llA7lKUNwtHRnw"
+  });
+
+    centrifuge.on('connecting', function (ctx) {
+      console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
+    }).on('connected', function (ctx) {
+      console.log(`connected over ${ctx.transport}`);
+    }).on('disconnected', function (ctx) {
+      console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
+    }).connect();
+
+    const sub = centrifuge.newSubscription("logs");
+
+    sub.on('publication', function (ctx) {
+      setCollectorLogs((prevLogs) => [ctx.data, ...prevLogs])
+    }).on('subscribing', function (ctx) {
+      console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
+    }).on('subscribed', function (ctx) {
+      console.log('subscribed', ctx);
+    }).on('unsubscribed', function (ctx) {
+      console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
+    }).subscribe();
+
+    return () => {
+      clearInterval(interval)
+      centrifuge.disconnect()
+    }
   }, [])
 
   return (
@@ -182,6 +222,23 @@ export default function Dashboard() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${(logsLoading || configLoading || statsLoading) ? "animate-spin" : ""}`} />
                 Refresh
               </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    View Config
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>Current Configuration</DialogTitle>
+                  </DialogHeader>
+                  <ConfigDashboard 
+                    config={config} 
+                    loading={configLoading}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -195,8 +252,8 @@ export default function Dashboard() {
           </TabsList>
           
           <TabsContent value="logs">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-              <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+              <div className="lg:col-span-1">
                 <LoggerDashboard 
                   logs={logs} 
                   loading={logsLoading}
@@ -204,9 +261,8 @@ export default function Dashboard() {
                 />
               </div>
               <div className="lg:col-span-1">
-                <ConfigDashboard 
-                  config={config} 
-                  loading={configLoading}
+                <CollectorDashboard 
+                  logs={collectorLogs}
                 />
               </div>
             </div>
