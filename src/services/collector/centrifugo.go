@@ -18,13 +18,14 @@ type CentClient struct {
 
 var Client *gocent.Client = &gocent.Client{}
 
-func Connection() *gocent.Client{
+func Connection() *gocent.Client {
 	return Client
 }
 
 type CentrifugoConfig struct {
 	URL    string `yaml:"url"`
 	APIKey string `yaml:"api_key"`
+	Secret string `yaml:"secret"`
 }
 
 type CentrifugoClient struct {

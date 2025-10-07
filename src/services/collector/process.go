@@ -24,14 +24,7 @@ type LogCollectorService struct {
 	centrifugoClient CentrifugoClient
 }
 
-func NewLogCollectorService(configPath string) (*LogCollectorService, error) {
-	logger := log.New(os.Stdout, "[LogCollector] ", log.LstdFlags)
-
-	//Load configuarionation
-	config, err := loadConfig(configPath, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
+func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorService, error) {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
