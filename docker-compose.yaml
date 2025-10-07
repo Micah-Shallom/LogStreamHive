@@ -21,7 +21,7 @@ services:
     build:
       context: ./src/services/generator
     volumes:
-      - ./logs:/var/log/logger
+      - ./logs:/var/log/logger  
     environment:
       - LOG_RATE=10
       - CONSOLE_OUTPUT=true
@@ -43,10 +43,8 @@ services:
       dockerfile: Dockerfile
     container_name: log_collector
     volumes:
-      - ./logs:/app/logs
-      - ./src/services/collector/config.yml:/app/config.yml
-    environment:
-      - CENTRIFUGO_URL=http://centrifugo:8000
+      - ./logs:/app/logs         # Mount same ./logs dir for collector
+      - ./src/services/collector/config.yml:/app/config.yml:ro
     depends_on:
       - centrifugo
       - log-generator

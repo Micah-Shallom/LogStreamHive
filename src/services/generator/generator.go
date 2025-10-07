@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,20 @@ func NewLogGenerator(cfg Config) *LogGenerator {
 	var writers []io.Writer
 
 	if cfg.OutputFile != "" {
+		dir := filepath.Dir(cfg.OutputFile)
+
+		if err := os.MkdirAll(dir, 0777); err != nil {
+			log.Fatalf("failed to create log dir %s: %v", dir, err)
+		}
+
+		if err := os.Chmod(dir, 0777); err != nil {
+			log.Printf("warning: failed to chmod log dir: %v", err)
+		}
+
+		if _, err := os.Stat(cfg.OutputFile); err == nil {
+			_ = os.Chmod(cfg.OutputFile, 0777)
+		}
+
 		logfile := &lumberjack.Logger{
 			Filename:   cfg.OutputFile,
 			MaxSize:    1,
@@ -50,6 +65,7 @@ func NewLogGenerator(cfg Config) *LogGenerator {
 		BurstEndTime: time.Now(),
 	}
 }
+
 
 func (lg *LogGenerator) selectLogType() string {
 	types := []string{}

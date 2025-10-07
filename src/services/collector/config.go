@@ -13,10 +13,10 @@ import (
 )
 
 type Config struct {
-	LogFiles      []string         `json:"log_files"`
-	CheckInterval float64          `json:"check_interval"`
-	Centrifugo    CentrifugoConfig `json:"centrifugo"`
-	ChannelID     string           `json:"channel_id"`
+	LogFiles      []string         `yaml:"log_files" json:"log_files"`
+	CheckInterval float64          `yaml:"check_interval" json:"check_interval"`
+	Centrifugo    CentrifugoConfig `yaml:"centrifugo" json:"centrifugo"`
+	ChannelID     string           `yaml:"channel_id" json:"channel_id"`
 }
 
 type LogFileHandler struct {
@@ -86,7 +86,6 @@ func (h *LogFileHandler) collectNewLogs() error {
 	scanner := bufio.NewScanner(file)
 	hasNewContent := false
 
-	fmt.Println("\n--- New log Entries detected ---")
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) > 0 {
@@ -125,15 +124,17 @@ func (h *LogFileHandler) collectNewLogs() error {
 
 func loadConfig(configPath string, logger *log.Logger) (Config, error) {
 	// Default configuration
-	config := Config{
-		LogFiles:      []string{"/app/logs/service.log"},
-		CheckInterval: 0.5,
-		Centrifugo: CentrifugoConfig{
-			APIKey: "",
-			URL:    "http://localhost:8080",
-		},
-		ChannelID: "logs",
-	}
+	// config := Config{
+	// 	LogFiles:      []string{"./logs/service.log"},
+	// 	CheckInterval: 0.5,
+	// 	Centrifugo: CentrifugoConfig{
+	// 		APIKey: "",
+	// 		URL:    "http://centrifugo:8080",
+	// 	},
+	// 	ChannelID: "logs",
+	// }
+
+	var config Config
 
 	// Try to load from file
 	if _, err := os.Stat(configPath); err == nil {

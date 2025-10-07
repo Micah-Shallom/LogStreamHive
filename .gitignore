@@ -67,4 +67,4 @@ cache
 server
 logs
 config.json
-config.yml
+# config.yml
