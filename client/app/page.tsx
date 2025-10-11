@@ -75,12 +75,14 @@ export default function Dashboard() {
   const [logsLoading, setLogsLoading] = useState(true)
   const [configLoading, setConfigLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
+  const [wsConnected, setWsConnected] = useState(false)
+  const [wsError, setWsError] = useState<string | null>(null)
   
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-  const COLLECTOR_API_URL = "http://localhost:8081";
-  const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://centrifugo:8000/connection/websocket"
+  const COLLECTOR_API_URL =  "http://localhost:8081"
+  const WS_URL = "ws://localhost:8000/connection/websocket"
 
   const fetchLogs = async () => {
     setLogsLoading(true)
@@ -166,64 +168,101 @@ export default function Dashboard() {
 
   const fetchAndConnect = async () => {
     const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-    const channelId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12";
+    const channelId = "logs"; 
 
     try {
+      console.log("🔧 Fetching connection token...");
+      
       const connResponse = await fetch(`${COLLECTOR_API_URL}/conn/${userId}`);
       if (!connResponse.ok) {
-        throw new Error(`HTTP error! status: ${connResponse.status}`);
+        throw new Error(`Failed to get connection token: ${connResponse.status}`);
       }
       const connData = await connResponse.json();
       if (connData.status !== "success") {
         throw new Error(connData.message || "Failed to get connection token");
       }
       const connToken = connData.data.token;
+      console.log("✅ Connection token obtained");
 
+      console.log("🔧 Fetching subscription token...");
       const subResponse = await fetch(`${COLLECTOR_API_URL}/sub/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: connToken, channel: channelId }),
+        body: JSON.stringify({ 
+          token: connToken, 
+          channel: channelId 
+        }),
       });
+      
       if (!subResponse.ok) {
-        throw new Error(`HTTP error! status: ${subResponse.status}`);
+        throw new Error(`Failed to get subscription token: ${subResponse.status}`);
       }
       const subData = await subResponse.json();
       if (subData.status !== "success") {
         throw new Error(subData.message || "Failed to get subscription token");
       }
       const subToken = subData.data.token;
+      console.log("✅ Subscription token obtained");
 
+      console.log("🔧 Creating Centrifuge client...");
       const centrifuge = new Centrifuge(WS_URL, {
-        token: subToken,
+        token: connToken, 
       });
 
       centrifuge.on('connecting', function (ctx) {
-        console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
+        console.log(`🔄 Connecting: ${ctx.code}, ${ctx.reason}`);
+        setWsConnected(false);
+        setWsError(null);
       }).on('connected', function (ctx) {
-        console.log(`connected over ${ctx.transport}`);
+        console.log(`✅ Connected over ${ctx.transport}`);
+        setWsConnected(true);
+        setWsError(null);
       }).on('disconnected', function (ctx) {
-        console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
-      }).connect();
+        console.log(`❌ Disconnected: ${ctx.code}, ${ctx.reason}`);
+        setWsConnected(false);
+        if (ctx.reason) {
+          setWsError(ctx.reason);
+        }
+      }).on('error', function (ctx) {
+        console.error('❌ Connection error:', ctx);
+        setWsError('Connection error');
+      });
 
-      const sub = centrifuge.newSubscription("logs");
+      // Connect first
+      centrifuge.connect();
+
+      console.log("🔧 Creating subscription...");
+      const sub = centrifuge.newSubscription(channelId, {
+        token: subToken, 
+      });
 
       sub.on('publication', function (ctx) {
+        console.log('📨 Received publication:', ctx.data);
         setCollectorLogs((prevLogs) => [ctx.data, ...prevLogs]);
       }).on('subscribing', function (ctx) {
-        console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
+        console.log(`🔄 Subscribing: ${ctx.code}, ${ctx.reason}`);
       }).on('subscribed', function (ctx) {
-        console.log('subscribed', ctx);
+        console.log('✅ Subscribed successfully to channel:', channelId, ctx);
       }).on('unsubscribed', function (ctx) {
-        console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
-      }).subscribe();
+        console.log(`❌ Unsubscribed: ${ctx.code}, ${ctx.reason}`);
+      }).on('error', function (ctx) {
+        console.error('❌ Subscription error:', ctx);
+        setWsError('Subscription error');
+      });
+
+      // Subscribe
+      sub.subscribe();
 
       return () => {
+        console.log("🧹 Cleaning up WebSocket connection");
+        sub.unsubscribe();
         centrifuge.disconnect();
       };
     } catch (error) {
-      console.error("Failed to connect to Centrifugo:", error);
+      console.error("❌ Failed to connect to Centrifugo:", error);
+      setWsError(error instanceof Error ? error.message : 'Connection failed');
     }
   };
 
@@ -231,13 +270,17 @@ export default function Dashboard() {
     fetchLogs()
     fetchConfig()
     fetchStatistics()
-    fetchAndConnect()
+    
+    const cleanup = fetchAndConnect()
 
     // Auto-refresh logs every 10 seconds
     const interval = setInterval(fetchLogs, 10000)
 
     return () => {
       clearInterval(interval)
+      if (cleanup) { 
+        cleanup.then(fn => fn && fn())
+      }
     }
   }, [])
 
@@ -250,6 +293,18 @@ export default function Dashboard() {
             <div className="flex items-center space-x-3">
               <FileText className="h-8 w-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">LogStreamHive</h1>
+              {/* WebSocket Status Indicator */}
+              <div className="flex items-center space-x-2 ml-4">
+                <div className={`h-3 w-3 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-sm text-gray-600">
+                  {wsConnected ? 'Live' : 'Disconnected'}
+                </span>
+              </div>
+              {wsError && (
+                <span className="text-xs text-red-600 ml-2 max-w-xs truncate" title={wsError}>
+                  {wsError}
+                </span>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">Last updated: {lastRefresh.toLocaleTimeString()}</span>

@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 )
-
 
 func (app *App) setupRouter() *gin.Engine {
 	router := gin.Default()
@@ -105,9 +102,6 @@ func (app *App) getConnToken(id string) (gin.H, int, error) {
 }
 
 func (app *App) getSubToken(id string, req ChannelSubTokenReq) (gin.H, int, error) {
-	if _, err := uuid.Parse(req.Channel); err != nil {
-		return nil, http.StatusBadRequest, errors.New("invalid channel id format")
-	}
 
 	// TODO: Add channel ownership/access validation here
 	// if !app.userHasAccessToChannel(id, req.Channel) {
@@ -128,4 +122,3 @@ func (app *App) getSubToken(id string, req ChannelSubTokenReq) (gin.H, int, erro
 
 	return gin.H{"token": signed}, http.StatusOK, nil
 }
-
