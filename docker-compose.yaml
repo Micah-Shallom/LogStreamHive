@@ -62,8 +62,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://log-generator:8000
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/connection/websocket
+      - NEXT_PUBLIC_API_URL=http://log-generator:8080
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8081/connection/websocket
     depends_on:
       - log-generator
       - centrifugo

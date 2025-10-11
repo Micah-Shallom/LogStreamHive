@@ -79,6 +79,7 @@ export default function Dashboard() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+  const COLLECTOR_API_URL = "http://localhost:8081";
   const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://centrifugo:8000/connection/websocket"
 
   const fetchLogs = async () => {
@@ -163,42 +164,80 @@ export default function Dashboard() {
     fetchStatistics()
   }
 
+  const fetchAndConnect = async () => {
+    const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    const channelId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12";
+
+    try {
+      const connResponse = await fetch(`${COLLECTOR_API_URL}/conn/${userId}`);
+      if (!connResponse.ok) {
+        throw new Error(`HTTP error! status: ${connResponse.status}`);
+      }
+      const connData = await connResponse.json();
+      if (connData.status !== "success") {
+        throw new Error(connData.message || "Failed to get connection token");
+      }
+      const connToken = connData.data.token;
+
+      const subResponse = await fetch(`${COLLECTOR_API_URL}/sub/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: connToken, channel: channelId }),
+      });
+      if (!subResponse.ok) {
+        throw new Error(`HTTP error! status: ${subResponse.status}`);
+      }
+      const subData = await subResponse.json();
+      if (subData.status !== "success") {
+        throw new Error(subData.message || "Failed to get subscription token");
+      }
+      const subToken = subData.data.token;
+
+      const centrifuge = new Centrifuge(WS_URL, {
+        token: subToken,
+      });
+
+      centrifuge.on('connecting', function (ctx) {
+        console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
+      }).on('connected', function (ctx) {
+        console.log(`connected over ${ctx.transport}`);
+      }).on('disconnected', function (ctx) {
+        console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
+      }).connect();
+
+      const sub = centrifuge.newSubscription("logs");
+
+      sub.on('publication', function (ctx) {
+        setCollectorLogs((prevLogs) => [ctx.data, ...prevLogs]);
+      }).on('subscribing', function (ctx) {
+        console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
+      }).on('subscribed', function (ctx) {
+        console.log('subscribed', ctx);
+      }).on('unsubscribed', function (ctx) {
+        console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
+      }).subscribe();
+
+      return () => {
+        centrifuge.disconnect();
+      };
+    } catch (error) {
+      console.error("Failed to connect to Centrifugo:", error);
+    }
+  };
+
   useEffect(() => {
-    // Initial fetch of all data
     fetchLogs()
     fetchConfig()
     fetchStatistics()
+    fetchAndConnect()
 
     // Auto-refresh logs every 10 seconds
     const interval = setInterval(fetchLogs, 10000)
-    
-    const centrifuge = new Centrifuge("ws://localhost:8000/connection/websocket", {
-    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM3MjIiLCJleHAiOjE2NTU0NDgyOTl9.mUU9s5kj3yqp-SAEqloGy8QBgsLg0llA7lKUNwtHRnw"
-  });
-
-    centrifuge.on('connecting', function (ctx) {
-      console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
-    }).on('connected', function (ctx) {
-      console.log(`connected over ${ctx.transport}`);
-    }).on('disconnected', function (ctx) {
-      console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
-    }).connect();
-
-    const sub = centrifuge.newSubscription("logs");
-
-    sub.on('publication', function (ctx) {
-      setCollectorLogs((prevLogs) => [ctx.data, ...prevLogs])
-    }).on('subscribing', function (ctx) {
-      console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
-    }).on('subscribed', function (ctx) {
-      console.log('subscribed', ctx);
-    }).on('unsubscribed', function (ctx) {
-      console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
-    }).subscribe();
 
     return () => {
       clearInterval(interval)
-      centrifuge.disconnect()
     }
   }, [])
 
