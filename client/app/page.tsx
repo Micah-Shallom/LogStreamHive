@@ -16,6 +16,7 @@ import Statistics from "@/components/statisticsboard"
 import ConfigDashboard from "@/components/configboard"
 import LoggerDashboard from "@/components/logsboard"
 import CollectorDashboard from "@/components/collectorboard"
+import {RawLog} from "@/components/collectorboard"
 
 interface LogEntry {
   timestamp: string
@@ -68,7 +69,7 @@ interface Anomaly {
 
 export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [collectorLogs, setCollectorLogs] = useState<LogEntry[]>([])
+  const [collectorLogs, setCollectorLogs] = useState<RawLog[]>([])
   const [config, setConfig] = useState<Config | null>(null)
   const [stats, setStats] = useState<Statistics | null>(null)
   
