@@ -1,6 +1,5 @@
 # LogStreamHive
 
-https://github.com/user-attachments/assets/7c630547-13ee-43f1-913a-78fc17a1d152
 
 <img width="1432" height="823" alt="Screenshot from 2025-10-11 21-04-16" src="https://github.com/user-attachments/assets/e0729603-0230-4cb7-a649-8a3a067cb6d4" />
 <img width="1407" height="742" alt="Screenshot from 2025-10-11 21-05-04" src="https://github.com/user-attachments/assets/87201840-90ba-4829-987d-113215857894" />
@@ -110,14 +109,6 @@ docker compose up -d
 -   `GET /conn/:id`: Authenticate a client to connect to the Centrifugo server.
 -   `GET /sub/:id`: Authenticate a client to subscribe to a channel on the Centrifugo server.
 
-## Contributing
+https://github.com/user-attachments/assets/7c630547-13ee-43f1-913a-78fc17a1d152
 
-1.  Fork the repository
-2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
-3.  Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4.  Push to the branch (`git push origin feature/amazing-feature`)
-5.  Open a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
