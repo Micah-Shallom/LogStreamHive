@@ -12,8 +12,7 @@
 - 📊 Interactive dashboard with metrics
 - 🔐 Configurable logging levels and formats
 - 🐳 Docker-ready deployment
-- ⚡ Built with Next.js and Go for
--  high performance
+- ⚡ Built with Next.js and Go for high performance
 
 ## Architecture
 
