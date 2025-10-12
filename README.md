@@ -1,6 +1,10 @@
 # LogStreamHive
 
-<img width="1382" height="672" alt="image" src="https://github.com/user-attachments/assets/56bd127a-f2cb-4550-98d7-ee728d92a5bb" />
+https://github.com/user-attachments/assets/7c630547-13ee-43f1-913a-78fc17a1d152
+
+<img width="1432" height="823" alt="Screenshot from 2025-10-11 21-04-16" src="https://github.com/user-attachments/assets/e0729603-0230-4cb7-a649-8a3a067cb6d4" />
+<img width="1407" height="742" alt="Screenshot from 2025-10-11 21-05-04" src="https://github.com/user-attachments/assets/87201840-90ba-4829-987d-113215857894" />
+
 
 ## Features
 
@@ -9,7 +13,8 @@
 - 📊 Interactive dashboard with metrics
 - 🔐 Configurable logging levels and formats
 - 🐳 Docker-ready deployment
-- ⚡ Built with Next.js and Go for high performance
+- ⚡ Built with Next.js and Go for
+-  high performance
 
 ## Architecture
 
