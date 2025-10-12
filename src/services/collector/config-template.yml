@@ -1,0 +1,7 @@
+log_files:
+  - "../generator/logs/service.log"
+check_interval: 0.5
+centrifugo:
+  url: "http://localhost:8000"
+  api_key: "" 
+channel_id: "logs"
