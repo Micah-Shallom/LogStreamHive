@@ -22,6 +22,7 @@ type LogFileHandler struct {
 	CentrifugoClient *CentrifugoClient
 	ChannelID        string
 	NatsClient       *NatsClient
+	Subject          string
 }
 
 type LogMessage struct {
@@ -40,9 +41,10 @@ type LogCollectorService struct {
 	wg               sync.WaitGroup
 	centrifugoClient CentrifugoClient
 	natsClient       *NatsClient
+	subject          string
 }
 
-func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorService, error) {
+func NewLogCollectorService(config Config, logger *log.Logger, subject string) (*LogCollectorService, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	watcher, err := fsnotify.NewWatcher()
@@ -81,6 +83,7 @@ func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorSer
 		cancel:           cancel,
 		centrifugoClient: *centrifugoClient,
 		natsClient:       &NatsClient{NatsConn: nc},
+		subject:          subject,
 	}
 
 	return service, nil
@@ -118,7 +121,7 @@ func (s *LogCollectorService) Start() error {
 		}
 
 		//setup handler for this log file
-		handler, err := NewLogFileHandler(absPath, s.logger, centrifugoClient, s.natsClient, channelID)
+		handler, err := NewLogFileHandler(absPath, s.logger, centrifugoClient, s.natsClient, channelID, s.subject)
 		if err != nil {
 			return fmt.Errorf("failed to create handler for %s: %w", absPath, err)
 		}

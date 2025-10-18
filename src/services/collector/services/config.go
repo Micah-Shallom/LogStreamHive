@@ -19,7 +19,7 @@ type Config struct {
 	Nats          NatsConfig       `yaml:"nats"`
 }
 
-func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, natsClient *NatsClient, channelID string) (*LogFileHandler, error) {
+func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, natsClient *NatsClient, channelID, subject string) (*LogFileHandler, error) {
 	handler := &LogFileHandler{
 		FilePath:         filePath,
 		LastPosition:     0,
@@ -27,6 +27,7 @@ func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *Ce
 		ChannelID:        channelID,
 		CentrifugoClient: centrifugoClient,
 		NatsClient:       natsClient,
+		Subject:          subject,
 	}
 
 	if err := handler.InitializePosition(); err != nil {
@@ -97,7 +98,7 @@ func (h *LogFileHandler) CollectNewLogs(logger *log.Logger) error {
 					FilePath:  h.FilePath,
 					Line:      line,
 				}
-				if err := h.NatsClient.PublishLogToNats("log.raw", logMsg); err != nil {
+				if err := h.NatsClient.PublishLogToNats(h.Subject, logMsg); err != nil {
 					logger.Printf("Failed to publish log to NATS: %v", err)
 				}
 			}

@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/nats-io/nats.go"
 )
@@ -15,9 +16,9 @@ type NatsConfig struct {
 	URL string `yaml:"url"`
 }
 
-func (c *NatsClient) PublishLogToNats(channel string, logMsg LogMessage) error {
-	if channel == "" {
-		return fmt.Errorf("empty channel supplied")
+func (c *NatsClient) PublishLogToNats(subject string, logMsg LogMessage) error {
+	if subject == "" {
+		return fmt.Errorf("empty subject supplied")
 	}
 
 	payload, err := json.Marshal(logMsg)
@@ -25,10 +26,12 @@ func (c *NatsClient) PublishLogToNats(channel string, logMsg LogMessage) error {
 		return fmt.Errorf("failed to marshal log message: %w", err)
 	}
 
-	err = c.NatsConn.Publish(channel, payload)
+	err = c.NatsConn.Publish(subject, payload)
 	if err != nil {
-		return fmt.Errorf("failed to publish to channel %s: %w", channel, err)
+		return fmt.Errorf("failed to publish to subject %s: %w", subject, err)
 	}
+
+	log.Printf("Published log to NATS subject %s", subject)
 
 	return nil
 }

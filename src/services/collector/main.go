@@ -17,8 +17,9 @@ func main() {
 	}
 
 	app := services.NewApp(config)
+	subject := "logs.raw"
 
-	service, err := services.NewLogCollectorService(config, logger)
+	service, err := services.NewLogCollectorService(config, logger, subject)
 	if err != nil {
 		log.Fatalf("failed to create collector service: %v", err)
 	}
