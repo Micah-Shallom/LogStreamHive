@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -9,10 +9,19 @@ import (
 	"net/http"
 	"time"
 
-	"collector/models"
-
 	"github.com/centrifugal/gocent"
 )
+
+type CentrifugoConfig struct {
+	URL    string `yaml:"url"`
+	APIKey string `yaml:"api_key"`
+	Secret string `yaml:"secret"`
+}
+
+type CentrifugoClient struct {
+	Client *gocent.Client
+	Logger *log.Logger
+}
 
 type CentClient struct {
 	C *gocent.Client
@@ -24,7 +33,7 @@ func Connection() *gocent.Client {
 	return Client
 }
 
-func NewCentrifugoClient(config models.CentrifugoConfig, logger *log.Logger) (*models.CentrifugoClient, error) {
+func NewCentrifugoClient(config CentrifugoConfig, logger *log.Logger) (*CentrifugoClient, error) {
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 		Transport: &http.Transport{
@@ -46,13 +55,13 @@ func NewCentrifugoClient(config models.CentrifugoConfig, logger *log.Logger) (*m
 
 	logger.Printf("Connected to Centrifugo server at %s", config.URL)
 
-	return &models.CentrifugoClient{
-		client: client,
-		logger: logger,
+	return &CentrifugoClient{
+		Client: client,
+		Logger: logger,
 	}, nil
 }
 
-func (c *models.CentrifugoClient) PublishLog(channelID string, logMsg LogMessage) error {
+func (c *CentrifugoClient) PublishLog(channelID string, logMsg LogMessage) error {
 	if channelID == "" {
 		return fmt.Errorf("empty channel_id supplied")
 	}
@@ -62,9 +71,9 @@ func (c *models.CentrifugoClient) PublishLog(channelID string, logMsg LogMessage
 		return fmt.Errorf("failed to marshal log message: %w", err)
 	}
 
-	err = c.client.Publish(context.Background(), channelID, payload)
+	err = c.Client.Publish(context.Background(), channelID, payload)
 	if err != nil {
-		c.logger.Printf("Failed to publish to channel %s: %v", channelID, err)
+		c.Logger.Printf("Failed to publish to channel %s: %v", channelID, err)
 		return err
 	}
 

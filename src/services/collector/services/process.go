@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -11,7 +11,24 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/nats-io/nats.go"
 )
+
+type LogFileHandler struct {
+	FilePath         string
+	LastPosition     int64
+	Mu               sync.Mutex
+	Logger           *log.Logger
+	CentrifugoClient *CentrifugoClient
+	ChannelID        string
+	NatsClient       *NatsClient
+}
+
+type LogMessage struct {
+	Timestamp string `json:"timestamp"`
+	FilePath  string `json:"file_path"`
+	Line      string `json:"line"`
+}
 
 type LogCollectorService struct {
 	config           Config
@@ -22,16 +39,16 @@ type LogCollectorService struct {
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 	centrifugoClient CentrifugoClient
+	natsClient       *NatsClient
 }
 
 func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorService, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	// Initialize Centrifugo client if API key is provided
 	var centrifugoClient *CentrifugoClient
@@ -45,6 +62,16 @@ func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorSer
 		logger.Println("⚠ Centrifugo API key not provided, running without websocket publishing")
 	}
 
+	var nc *nats.Conn
+	if config.Nats.URL != "" {
+		nc, err = nats.Connect(config.Nats.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to nats: %w", err)
+		}
+	} else {
+		logger.Println("⚠ NATS URL not provided, running without NATS publishing")
+	}
+
 	service := &LogCollectorService{
 		config:           config,
 		handlers:         make(map[string]*LogFileHandler),
@@ -53,6 +80,7 @@ func NewLogCollectorService(config Config, logger *log.Logger) (*LogCollectorSer
 		ctx:              ctx,
 		cancel:           cancel,
 		centrifugoClient: *centrifugoClient,
+		natsClient:       &NatsClient{NatsConn: nc},
 	}
 
 	return service, nil
@@ -90,7 +118,7 @@ func (s *LogCollectorService) Start() error {
 		}
 
 		//setup handler for this log file
-		handler, err := NewLogFileHandler(absPath, s.logger, centrifugoClient, channelID)
+		handler, err := NewLogFileHandler(absPath, s.logger, centrifugoClient, s.natsClient, channelID)
 		if err != nil {
 			return fmt.Errorf("failed to create handler for %s: %w", absPath, err)
 		}
@@ -127,7 +155,7 @@ func (s *LogCollectorService) processEvents() {
 			if handler, exists := s.handlers[event.Name]; exists {
 				//only process write/create events
 				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-					if err := handler.collectNewLogs(); err != nil {
+					if err := handler.CollectNewLogs(s.logger); err != nil {
 						s.logger.Printf("error collecting logs from %s: %v", event.Name, err)
 					}
 				}
@@ -146,6 +174,12 @@ func (s *LogCollectorService) Stop() {
 	s.logger.Println("stopping log collector service...")
 	s.cancel()
 	s.watcher.Close()
+
+	if s.natsClient != nil {
+		s.natsClient.NatsConn.Close()
+		s.logger.Println("closed NATS connection")
+	}
+
 	s.wg.Wait()
 	s.logger.Println("stopped all log monitoring")
 }

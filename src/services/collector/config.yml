@@ -5,4 +5,6 @@ centrifugo:
   url: http://centrifugo:8000
   api_key: jM-Ot3ZBVJcKOu8yzI3l7iK7yByulGjpwWtBUe2zcIbsaFPYWY4b6c7MCkspaFrKOCmTnJPDSeOw6AUqUCInzg
   secret: wiTpdyP_e6pNZqY1-5KaD4LED3-UDf7yYONeVwDAZXsGneFNTDt8n3o0JkOjauQgLiEA5C6s_PwlCmCWnSKckw
+nats:
+  url: nats://nats_server:4222
 channel_id: logs
