@@ -128,7 +128,7 @@ func (s *LogCollectorService) processEvents() {
 				//only process write/create events
 				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 					if err := handler.collectNewLogs(); err != nil {
-						s.logger.Printf("error collecting logs from %s: %w", event.Name, err)
+						s.logger.Printf("error collecting logs from %s: %v", event.Name, err)
 					}
 				}
 			}

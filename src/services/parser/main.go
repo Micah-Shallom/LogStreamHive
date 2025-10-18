@@ -1,4 +1,4 @@
-package parser
+package main
 
 import (
 	"log"
@@ -11,7 +11,7 @@ import (
 func main() {
 	logDir := os.Getenv("LOG_DIR")
 	if logDir == "" {
-		logDir = "../logs"
+		logDir = "logs"
 	}
 
 	outputDir := os.Getenv("OUTPUT_DIR")

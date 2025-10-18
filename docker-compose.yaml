@@ -1,6 +1,20 @@
 version: "3.9"
 
 services:
+  parser:
+    build:
+      context: ./src/services/parser
+      dockerfile: Dockerfile
+    container_name: log_parser
+    environment:
+      - LOG_DIR=/var/log/logger
+      - PARSED_LOG_DIR=/var/log/parsed
+    volumes:
+      - ./logs:/var/log/logger           # shared raw logs
+      - ./parsed_logs:/var/log/parsed    # shared parsed logs
+    networks:
+      - app_network
+    restart: unless-stopped
   centrifugo:
     image: centrifugo/centrifugo:v6
     container_name: centrifugo_server
