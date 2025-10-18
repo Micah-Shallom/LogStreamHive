@@ -1,10 +1,11 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24.5-alpine3.22  AS builder
 
 WORKDIR /app
 
-COPY ./*.go ./
+COPY go.* ./
 RUN go mod download
 
+COPY . .
 
 RUN go build -o log_processing_service .
 
