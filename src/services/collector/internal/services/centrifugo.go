@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"collector/models"
+
 	"github.com/centrifugal/gocent"
 )
 
@@ -22,18 +24,7 @@ func Connection() *gocent.Client {
 	return Client
 }
 
-type CentrifugoConfig struct {
-	URL    string `yaml:"url"`
-	APIKey string `yaml:"api_key"`
-	Secret string `yaml:"secret"`
-}
-
-type CentrifugoClient struct {
-	client *gocent.Client
-	logger *log.Logger
-}
-
-func NewCentrifugoClient(config CentrifugoConfig, logger *log.Logger) (*CentrifugoClient, error) {
+func NewCentrifugoClient(config models.CentrifugoConfig, logger *log.Logger) (*models.CentrifugoClient, error) {
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 		Transport: &http.Transport{
@@ -55,19 +46,13 @@ func NewCentrifugoClient(config CentrifugoConfig, logger *log.Logger) (*Centrifu
 
 	logger.Printf("Connected to Centrifugo server at %s", config.URL)
 
-	return &CentrifugoClient{
+	return &models.CentrifugoClient{
 		client: client,
 		logger: logger,
 	}, nil
 }
 
-type LogMessage struct {
-	Timestamp string `json:"timestamp"`
-	FilePath  string `json:"file_path"`
-	Line      string `json:"line"`
-}
-
-func (c *CentrifugoClient) PublishLog(channelID string, logMsg LogMessage) error {
+func (c *models.CentrifugoClient) PublishLog(channelID string, logMsg LogMessage) error {
 	if channelID == "" {
 		return fmt.Errorf("empty channel_id supplied")
 	}

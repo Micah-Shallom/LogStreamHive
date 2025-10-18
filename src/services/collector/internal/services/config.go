@@ -9,24 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	LogFiles      []string         `yaml:"log_files" json:"log_files"`
-	CheckInterval float64          `yaml:"check_interval" json:"check_interval"`
-	Centrifugo    CentrifugoConfig `yaml:"centrifugo" json:"centrifugo"`
-	ChannelID     string           `yaml:"channel_id" json:"channel_id"`
-}
-
-type LogFileHandler struct {
-	filePath         string
-	lastPosition     int64
-	mu               sync.Mutex
-	logger           *log.Logger
-	centrifugoClient *CentrifugoClient
-	channelID        string
-}
 
 func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, channelID string) (*LogFileHandler, error) {
 	handler := &LogFileHandler{
@@ -35,6 +21,7 @@ func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *Ce
 		logger:           logger,
 		channelID:        channelID,
 		centrifugoClient: centrifugoClient,
+		natsConn:         &nats.Conn{},
 	}
 
 	// Initialize position at end of file
@@ -98,6 +85,12 @@ func (h *LogFileHandler) collectNewLogs() error {
 				}
 				if err := h.centrifugoClient.PublishLog(h.channelID, logMsg); err != nil {
 					h.logger.Printf("Failed to publish log to Centrifugo channel '%s': %v", h.channelID, err)
+				}
+
+				if h.natsConn != nil {
+					if err := h.natsConn.Publish("logs.raw", []byte(logMsg)); err != nil {
+						h.logger.Printf("Failed to publish log to NATS: %v", err)
+					}
 				}
 			}
 
