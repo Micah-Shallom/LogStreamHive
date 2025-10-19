@@ -136,3 +136,7 @@ func (ls *LogStorage) CompressFile(src, dst string) error {
 
 	return nil
 }
+
+func (ls *LogStorage) Close() error {
+	return nil
+}
