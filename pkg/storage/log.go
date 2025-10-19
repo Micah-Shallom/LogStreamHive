@@ -1,5 +1,7 @@
 package main
 
+//custom log management functionlaity....replaced with lumberjack for efficiency
+
 import (
 	"compress/gzip"
 	"fmt"
