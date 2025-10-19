@@ -65,3 +65,6 @@ dist/
 static
 cache
 server
+logs
+config.json
+# config.yml

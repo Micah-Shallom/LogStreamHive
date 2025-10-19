@@ -1,48 +1,104 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Settings, FileText } from "lucide-react"
-
+import { Centrifuge } from "centrifuge";
+import { RefreshCw, FileText, Settings } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import Statistics from "@/components/statisticsboard"
+import ConfigDashboard from "@/components/configboard"
+import LoggerDashboard from "@/components/logsboard"
+import CollectorDashboard from "@/components/collectorboard"
+import {RawLog} from "@/components/collectorboard"
 
 interface LogEntry {
   timestamp: string
-  level: string
+  log_type: string
+  user_id: string
+  duration: number
   message: string
+  request_id: string
+  service: string
   source?: string
 }
 
 interface Config {
-  LOG_LEVEL: string
+  LOG_RATE: number
+  LOG_TYPES: string[]
+  LOG_DISTRIBUTION: Record<string, number>
+  OUTPUT_FILE: string
+  CONSOLE_OUTPUT: boolean
   LOG_FORMAT: string
-  LOG_INTERVAL_SECONDS: number
+  SERVICES: string[]
+  ENABLE_BURSTS: boolean
+  BURST_FREQUENCY: number
+  BURST_MULTIPLIER: number
+  BURST_DURATION: number
 }
 
-export default function LoggerDashboard() {
+interface Statistics {
+  logTypeCounts: Record<string, number>
+  serviceDurations: Record<string, number>
+  serviceCallCounts: Record<string, number>
+  errorSequences: ErrorSequence[]
+  anomalyDetections: Anomaly[]
+  updatedAt: string
+}
+
+interface ErrorSequence {
+  startTime: string
+  endTime: string
+  count: number
+  service: string
+}
+
+interface Anomaly {
+  timestamp: string
+  service: string
+  metricName: string
+  value: number
+  threshold: number
+}
+
+export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [collectorLogs, setCollectorLogs] = useState<RawLog[]>([])
   const [config, setConfig] = useState<Config | null>(null)
+  const [stats, setStats] = useState<Statistics | null>(null)
+  
   const [logsLoading, setLogsLoading] = useState(true)
   const [configLoading, setConfigLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [wsConnected, setWsConnected] = useState(false)
+  const [wsError, setWsError] = useState<string | null>(null)
+  
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
-  const mockConfig: Config = {
-    LOG_LEVEL: "DEBUG",
-    LOG_FORMAT: "json",
-    LOG_INTERVAL_SECONDS: 5,
-  }
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+  const COLLECTOR_API_URL =  "http://localhost:8081"
+  const WS_URL = "ws://localhost:8000/connection/websocket"
 
   const fetchLogs = async () => {
     setLogsLoading(true)
     try {
       const response = await fetch(`${API_URL}/logs`)
-      if (!response.ok){
+      if (!response.ok) {
+        console.error("Response not ok:", response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data: LogEntry[] = await response.json()
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
+
+      const data: LogEntry[] = res.data || []
       setLogs(data.reverse())
     } catch (error) {
       console.error("Failed to fetch logs:", error)
@@ -58,10 +114,16 @@ export default function LoggerDashboard() {
     try {
       const response = await fetch(`${API_URL}/config`)
       if (!response.ok) {
+        console.error("Response not ok:", response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data: Config = await response.json()
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
+      
+      const data: Config = res.data 
       setConfig(data)
     } catch (error) {
       console.error("Failed to fetch config:", error)
@@ -71,33 +133,157 @@ export default function LoggerDashboard() {
     }
   }
 
-  useEffect(() => {
-    fetchLogs()
-    fetchConfig()
+  const fetchStatistics = async () => {
+    setStatsLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/statistics`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
-    // Auto-refresh logs every 10 seconds
-    const interval = setInterval(fetchLogs, 10000)
-    return () => clearInterval(interval)
-  }, [])
+      const res = await response.json()
+      if (res.status !== "success") {
+        throw new Error(res.Message || "Unknown error")
+      }
 
-  const getLogLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case "error":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "warn":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "info":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "debug":
-        return "bg-gray-100 text-gray-800 border-gray-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+      const data: Statistics = res.data
+
+      if (!data.logTypeCounts || !data.serviceDurations || !data.serviceCallCounts) {
+        throw new Error("Incomplete statistics data received from server.")
+      }
+
+      setStats(data)
+    } catch (error) {
+      console.error("Failed to fetch statistics:", error)
+      setStats(null)
+    } finally {
+      setStatsLoading(false)
     }
   }
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString()
+  const refreshAll = () => {
+    fetchLogs()
+    fetchConfig()
+    fetchStatistics()
   }
+
+  const fetchAndConnect = async () => {
+    const userId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    const channelId = "logs"; 
+
+    try {
+      console.log("🔧 Fetching connection token...");
+      
+      const connResponse = await fetch(`${COLLECTOR_API_URL}/conn/${userId}`);
+      if (!connResponse.ok) {
+        throw new Error(`Failed to get connection token: ${connResponse.status}`);
+      }
+      const connData = await connResponse.json();
+      if (connData.status !== "success") {
+        throw new Error(connData.message || "Failed to get connection token");
+      }
+      const connToken = connData.data.token;
+      console.log("✅ Connection token obtained");
+
+      console.log("🔧 Fetching subscription token...");
+      const subResponse = await fetch(`${COLLECTOR_API_URL}/sub/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          token: connToken, 
+          channel: channelId 
+        }),
+      });
+      
+      if (!subResponse.ok) {
+        throw new Error(`Failed to get subscription token: ${subResponse.status}`);
+      }
+      const subData = await subResponse.json();
+      if (subData.status !== "success") {
+        throw new Error(subData.message || "Failed to get subscription token");
+      }
+      const subToken = subData.data.token;
+      console.log("✅ Subscription token obtained");
+
+      console.log("🔧 Creating Centrifuge client...");
+      const centrifuge = new Centrifuge(WS_URL, {
+        token: connToken, 
+      });
+
+      centrifuge.on('connecting', function (ctx) {
+        console.log(`🔄 Connecting: ${ctx.code}, ${ctx.reason}`);
+        setWsConnected(false);
+        setWsError(null);
+      }).on('connected', function (ctx) {
+        console.log(`✅ Connected over ${ctx.transport}`);
+        setWsConnected(true);
+        setWsError(null);
+      }).on('disconnected', function (ctx) {
+        console.log(`❌ Disconnected: ${ctx.code}, ${ctx.reason}`);
+        setWsConnected(false);
+        if (ctx.reason) {
+          setWsError(ctx.reason);
+        }
+      }).on('error', function (ctx) {
+        console.error('❌ Connection error:', ctx);
+        setWsError('Connection error');
+      });
+
+      // Connect first
+      centrifuge.connect();
+
+      console.log("🔧 Creating subscription...");
+      const sub = centrifuge.newSubscription(channelId, {
+        token: subToken, 
+      });
+
+      sub.on('publication', function (ctx) {
+        console.log('📨 Received publication:', ctx.data);
+        setCollectorLogs((prevLogs) => [ctx.data, ...prevLogs]);
+      }).on('subscribing', function (ctx) {
+        console.log(`🔄 Subscribing: ${ctx.code}, ${ctx.reason}`);
+      }).on('subscribed', function (ctx) {
+        console.log('✅ Subscribed successfully to channel:', channelId, ctx);
+      }).on('unsubscribed', function (ctx) {
+        console.log(`❌ Unsubscribed: ${ctx.code}, ${ctx.reason}`);
+      }).on('error', function (ctx) {
+        console.error('❌ Subscription error:', ctx);
+        setWsError('Subscription error');
+      });
+
+      // Subscribe
+      sub.subscribe();
+
+      return () => {
+        console.log("🧹 Cleaning up WebSocket connection");
+        sub.unsubscribe();
+        centrifuge.disconnect();
+      };
+    } catch (error) {
+      console.error("❌ Failed to connect to Centrifugo:", error);
+      setWsError(error instanceof Error ? error.message : 'Connection failed');
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs()
+    fetchConfig()
+    fetchStatistics()
+    
+    const cleanup = fetchAndConnect()
+
+    // Auto-refresh logs every 10 seconds
+    const interval = setInterval(fetchLogs, 10000)
+
+    return () => {
+      clearInterval(interval)
+      if (cleanup) { 
+        cleanup.then(fn => fn && fn())
+      }
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -108,117 +294,83 @@ export default function LoggerDashboard() {
             <div className="flex items-center space-x-3">
               <FileText className="h-8 w-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">LogStreamHive</h1>
+              {/* WebSocket Status Indicator */}
+              <div className="flex items-center space-x-2 ml-4">
+                <div className={`h-3 w-3 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-sm text-gray-600">
+                  {wsConnected ? 'Live' : 'Disconnected'}
+                </span>
+              </div>
+              {wsError && (
+                <span className="text-xs text-red-600 ml-2 max-w-xs truncate" title={wsError}>
+                  {wsError}
+                </span>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">Last updated: {lastRefresh.toLocaleTimeString()}</span>
               <button
-                onClick={fetchLogs}
-                disabled={logsLoading}
+                onClick={refreshAll}
+                disabled={logsLoading || configLoading || statsLoading}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${logsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${(logsLoading || configLoading || statsLoading) ? "animate-spin" : ""}`} />
                 Refresh
               </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    View Config
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>Current Configuration</DialogTitle>
+                  </DialogHeader>
+                  <ConfigDashboard 
+                    config={config} 
+                    loading={configLoading}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Logs Section */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5" />
-                  <span>Recent Logs</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-96 overflow-y-auto space-y-3 bg-gray-50 p-4 rounded-lg">
-                  {logsLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-                      <span className="ml-2 text-gray-500">Loading logs...</span>
-                    </div>
-                  ) : logs.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-gray-500">No logs available</div>
-                  ) : (
-                    logs.map((log, index) => (
-                      <div
-                        key={index}
-                        className="bg-white p-3 rounded-md border border-gray-200 hover:shadow-sm transition-shadow"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <Badge className={getLogLevelColor(log.level)}>{log.level}</Badge>
-                              <span className="text-xs text-gray-500">{formatTimestamp(log.timestamp)}</span>
-                              {log.source && <span className="text-xs text-gray-400">{log.source}</span>}
-                            </div>
-                            <p className="text-sm text-gray-900 font-mono">{log.message}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Current Configuration Section */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5" />
-                  <span>Current Configuration</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {configLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-                    <span className="ml-2 text-gray-500">Loading config...</span>
-                  </div>
-                ) : config ? (
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Log Level</span>
-                          <Badge className={getLogLevelColor(config.LOG_LEVEL)}>{config.LOG_LEVEL}</Badge>
-                        </div>
-
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Log Format</span>
-                          <span className="text-sm text-gray-900 font-mono bg-white px-2 py-1 rounded border">
-                            {config.LOG_FORMAT}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">Interval (seconds)</span>
-                          <span className="text-sm text-gray-900 font-mono bg-white px-2 py-1 rounded border">
-                            {config.LOG_INTERVAL_SECONDS}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-gray-500 mt-4">
-                      Configuration is read from environment variables and updated on service restart.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">Failed to load configuration</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <Tabs defaultValue="logs" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="logs">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+              <div className="lg:col-span-1">
+                <LoggerDashboard 
+                  logs={logs} 
+                  loading={logsLoading}
+                  onRefresh={fetchLogs}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <CollectorDashboard 
+                  logs={collectorLogs}
+                />
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="statistics">
+            <Statistics 
+              stats={stats}
+              loading={statsLoading}
+              onRefresh={fetchStatistics}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
