@@ -66,7 +66,6 @@ func NewLogGenerator(cfg Config) *LogGenerator {
 	}
 }
 
-
 func (lg *LogGenerator) selectLogType() string {
 	types := []string{}
 	weights := []int{}
