@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-func (app *App) setupRouter() *gin.Engine {
+func (app *App) SetupRouter() *gin.Engine {
 	router := gin.Default()
 
 	router.Use(corsMiddleware())

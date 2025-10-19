@@ -9,7 +9,6 @@ COPY . .
 
 RUN go build -o /bin/collector .
 
-
 EXPOSE 8080
 
 RUN mkdir -p /var/log/collector

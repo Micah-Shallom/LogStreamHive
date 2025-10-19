@@ -1,6 +1,32 @@
 version: "3.9"
 
 services:
+  nats:
+    image: nats:latest
+    container_name: nats_server
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  parser:
+    build:
+      context: ./src/services/parser
+      dockerfile: Dockerfile
+    container_name: log_parser
+    environment:
+      - NATS_URL=nats://nats_server:4222
+      - OUTPUT_DIR=/var/log/parsed
+    volumes:
+      - ./parsed_logs:/var/log/parsed 
+    networks:
+      - app_network
+    restart: unless-stopped
+    depends_on:
+      - nats
+
   centrifugo:
     image: centrifugo/centrifugo:v6
     container_name: centrifugo_server
@@ -43,13 +69,16 @@ services:
       dockerfile: Dockerfile
     container_name: log_collector
     volumes:
-      - ./logs:/app/logs         # Mount same ./logs dir for collector
+      - ./logs:/app/logs       
       - ./src/services/collector/config.yml:/app/config.yml:ro
     depends_on:
       - centrifugo
       - log-generator
+      - nats
     networks:
       - app_network
+    environment:
+      - NATS_URL=nats://nats_server:4222
     ports:
       - "8081:8080"
     restart: unless-stopped
