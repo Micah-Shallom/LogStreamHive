@@ -1,0 +1,21 @@
+{
+  "client": {
+    "token": {
+      "hmac_secret_key": "wiTpdyP_e6pNZqY1-5KaD4LED3-UDf7yYONeVwDAZXsGneFNTDt8n3o0JkOjauQgLiEA5C6s_PwlCmCWnSKckw"
+    },
+    "allowed_origins": ["http://localhost:3000"]
+  },
+  "admin": {
+    "enabled": true,
+    "password": "EBWqios5c3u2sMuySglFkw",
+    "secret": "u8UjksvKU8MkMqKVKuTeLohaZkigxGgGB2SLhm50QqVI4LuvVDMI91Au-dMPh0Q_P2qgLx3mSS_hqh835YMfPg"
+  },
+  "http_api": {
+    "key": "jM-Ot3ZBVJcKOu8yzI3l7iK7yByulGjpwWtBUe2zcIbsaFPYWY4b6c7MCkspaFrKOCmTnJPDSeOw6AUqUCInzg"
+  },
+  "channel": {
+    "without_namespace": {
+      "allow_subscribe_for_client": true
+    }
+  }
+}
