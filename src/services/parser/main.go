@@ -15,8 +15,14 @@ func main() {
 
 	outputDir := os.Getenv("OUTPUT_DIR")
 	if outputDir == "" {
-		outputDir = "parsed_logs"
+		outputDir = "logs/parsed"
 	}
+
+	outputFile := os.Getenv("OUTPUT_FILE")
+	if outputFile == "" {
+		outputFile = "logs/parsed/parsed_logs.json"
+	}
+
 	subject := "logs.raw"
 
 	nc, err := nats.Connect(natsURL)
@@ -25,7 +31,7 @@ func main() {
 	}
 	defer nc.Close()
 
-	handler := NewLogFileHandler(outputDir, subject)
+	handler := NewLogFileHandler(outputDir, outputFile, subject)
 
 	_, err = nc.Subscribe(subject, func(m *nats.Msg) {
 		log.Printf("Received log: %s", string(m.Data))

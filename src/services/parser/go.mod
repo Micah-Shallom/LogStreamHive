@@ -2,7 +2,10 @@ module parser
 
 go 1.24.4
 
-require github.com/nats-io/nats.go v1.47.0
+require (
+	github.com/nats-io/nats.go v1.47.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+)
 
 require (
 	github.com/klauspost/compress v1.18.0 // indirect

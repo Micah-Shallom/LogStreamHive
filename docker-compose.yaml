@@ -1,6 +1,19 @@
 version: "3.9"
 
 services:
+  # storage: 
+  #   build:
+  #     context: ./src/services/storage
+  #   volumes:
+  #     - ./parsed_logs:/var/log/data/parsed
+  #     - ./storage_logs:/var/log/data/storage
+  #   environment:
+  #     - NATS_URL=nats://nats_server:4222
+  #   command: ./storage --input-dir /var/log/data/parsed --storage-dir /var/log/data/storage --rotation-size 1 --rotation-hours 1 --interval 5
+  #   depends_on:
+  #     - nats
+  #     - parser
+
   nats:
     image: nats:latest
     container_name: nats_server
@@ -10,7 +23,6 @@ services:
     networks:
       - app_network
     restart: unless-stopped
-
   parser:
     build:
       context: ./src/services/parser
@@ -18,9 +30,11 @@ services:
     container_name: log_parser
     environment:
       - NATS_URL=nats://nats_server:4222
-      - OUTPUT_DIR=/var/log/parsed
+      - OUTPUT_DIR=/var/log/data/parsed
+      - OUTPUT_FILE=/var/log/data/parsed/parsed.log
+
     volumes:
-      - ./parsed_logs:/var/log/parsed 
+      - ./parsed_logs:/var/log/data/parsed 
     networks:
       - app_network
     restart: unless-stopped

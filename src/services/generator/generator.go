@@ -171,7 +171,7 @@ func (lg *LogGenerator) Run(duration float64) {
 		}
 
 		LogEntry := lg.generateLogMessage()
-		lg.logger.Println(LogEntry)
+		lg.logger.Println(LogEntry) //this is where the log is actually written
 		count++
 
 		if duration > 0 && time.Since(start).Seconds() >= duration {
