@@ -2,10 +2,7 @@ module parser
 
 go 1.24.4
 
-require (
-	github.com/fsnotify/fsnotify v1.9.0
-	github.com/nats-io/nats.go v1.47.0
-)
+require github.com/nats-io/nats.go v1.47.0
 
 require (
 	github.com/klauspost/compress v1.18.0 // indirect

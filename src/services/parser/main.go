@@ -15,7 +15,7 @@ func main() {
 
 	outputDir := os.Getenv("OUTPUT_DIR")
 	if outputDir == "" {
-		outputDir = "logs/parsed"
+		outputDir = "parsed_logs"
 	}
 	subject := "logs.raw"
 

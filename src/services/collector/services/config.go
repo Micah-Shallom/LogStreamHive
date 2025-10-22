@@ -11,13 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	LogFiles      []string         `yaml:"log_files" json:"log_files"`
-	CheckInterval float64          `yaml:"check_interval" json:"check_interval"`
-	Centrifugo    CentrifugoConfig `yaml:"centrifugo" json:"centrifugo"`
-	ChannelID     string           `yaml:"channel_id" json:"channel_id"`
-	Nats          NatsConfig       `yaml:"nats"`
-}
+
 
 func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, natsClient *NatsClient, channelID, subject string) (*LogFileHandler, error) {
 	handler := &LogFileHandler{

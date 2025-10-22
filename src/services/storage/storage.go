@@ -146,7 +146,7 @@ func (ls *LogStorage) updateIndex(parsedData []LogEntry, storageFile string) err
 			indexFile := filepath.Join(indexTypeDir, keyValue+".idx")
 			indexEntry := map[string]any{
 				"file": storageFile,
-				"line": 1,
+				"line": i,
 			}
 
 			data, err := json.Marshal(indexEntry)
@@ -168,7 +168,174 @@ func (ls *LogStorage) updateIndex(parsedData []LogEntry, storageFile string) err
 			}
 
 			f.Close()
-
 		}
+	}
+	return nil
+}
+
+func (ls *LogStorage) storeLogs(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	var parsedData []LogEntry
+	if err := json.Unmarshal(data, &parsedData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	if len(parsedData) == 0 {
+		return "", nil
+	}
+
+	timestamp := time.Now().Unix()
+	storageFile := filepath.Join(ls.activeDir, fmt.Sprintf("logs_%d.json", timestamp))
+
+	outData, err := json.MarshalIndent(parsedData, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal logs: %w", err)
+	}
+
+	if err := os.WriteFile(storageFile, outData, 0644); err != nil {
+		return "", fmt.Errorf("failed to write storage file: %w", err)
+	}
+
+	relPath, _ := filepath.Rel(ls.storageDir, storageFile)
+	if err := ls.updateIndex(parsedData, relPath); err != nil {
+		fmt.Printf("Error updating index: %v\n", err)
+	}
+
+	fmt.Printf("Stored %d log entries in %s\n", len(parsedData), storageFile)
+	return storageFile, nil
+}
+
+func (ls *LogStorage) checkRotation() {
+	entries, err := os.ReadDir(ls.activeDir)
+	if err != nil || len(entries) == 0 {
+		return
+	}
+
+	// Check size-based rotation
+	var totalSize int64
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			info, err := entry.Info()
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			totalSize += info.Size()
+		}
+	}
+
+	totalSizeMB := totalSize / (1024 * 1024)
+	if totalSizeMB >= int64(ls.rotationSizeMB) {
+		ls.rotateLogs("size")
+		return
+	}
+
+	// Check time-based rotation
+	if len(entries) > 0 {
+		oldestEntry, _ := entries[0].Info()
+		for _, entry := range entries {
+			info, err := entry.Info()
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			if info.ModTime().Before(oldestEntry.ModTime()) {
+				oldestEntry = info
+			}
+		}
+
+		if time.Since(oldestEntry.ModTime()) > time.Duration(ls.rotationHours)*time.Hour {
+			ls.rotateLogs("time")
+		}
+	}
+}
+
+func (ls *LogStorage) rotateLogs(reason string) {
+	fmt.Printf("Rotating logs due to %s trigger\n", reason)
+
+	timestamp := time.Now().Unix()
+	archiveSubDir := filepath.Join(ls.archiveDir, fmt.Sprintf("rotated_%d", timestamp))
+
+	if err := os.MkdirAll(archiveSubDir, 0755); err != nil {
+		fmt.Printf("Error creating archive directory: %v\n", err)
+		return
+	}
+
+	entries, err := os.ReadDir(ls.activeDir)
+	if err != nil {
+		fmt.Printf("Error reading active directory: %v\n", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			src := filepath.Join(ls.activeDir, entry.Name())
+			dst := filepath.Join(archiveSubDir, entry.Name())
+			if err := os.Rename(src, dst); err != nil {
+				fmt.Printf("Error moving file %s: %v\n", entry.Name(), err)
+			}
+		}
+	}
+
+	fmt.Printf("Rotated logs to %s\n", archiveSubDir)
+}
+
+func (ls *LogStorage) Run() {
+	fmt.Printf("Starting log storage system\n")
+	fmt.Printf("Watching for parsed logs in %s\n", ls.inputDir)
+	fmt.Printf("Storing logs in %s\n", ls.storageDir)
+	fmt.Printf("Rotation policy: %dMB or %d hours\n", ls.rotationSizeMB, ls.rotationHours)
+
+	ticker := time.NewTicker(ls.interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// Check for new parsed log files
+		entries, err := os.ReadDir(ls.inputDir)
+		if err != nil {
+			fmt.Printf("Error reading input directory: %v\n", err)
+			continue
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+
+			if !strings.HasSuffix(entry.Name(), ".json") {
+				continue
+			}
+
+			filePath := filepath.Join(ls.inputDir, entry.Name())
+
+			ls.processedMutex.RLock()
+			processed := ls.processedFiles[filePath]
+			ls.processedMutex.RUnlock()
+
+			if processed {
+				continue
+			}
+
+			fmt.Printf("Processing parsed file: %s\n", filePath)
+			if _, err := ls.storeLogs(filePath); err != nil {
+				fmt.Printf("Error storing logs: %v\n", err)
+				continue
+			}
+
+			ls.processedMutex.Lock()
+			ls.processedFiles[filePath] = true
+			ls.processedMutex.Unlock()
+
+			if err := ls.saveTrackingData(); err != nil {
+				fmt.Printf("Error saving tracking data: %v\n", err)
+			}
+		}
+
+		// Check if rotation is needed
+		ls.checkRotation()
 	}
 }
