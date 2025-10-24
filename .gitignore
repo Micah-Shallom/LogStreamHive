@@ -70,3 +70,4 @@ config.json
 # config.yml
 logs
 parsed_logs
+storage_logs

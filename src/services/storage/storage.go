@@ -201,7 +201,8 @@ func (ls *LogStorage) Run() {
 				continue
 			}
 
-			if strings.HasSuffix(entry.Name(), ".json") {
+			if strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".log") {
+				fmt.Println("Skipping non-compressed file:", entry.Name())
 				continue
 			}
 
@@ -212,6 +213,7 @@ func (ls *LogStorage) Run() {
 			ls.processedMutex.RUnlock()
 
 			if processed {
+				fmt.Println("Skipping already processed file:", filePath)
 				continue
 			}
 
