@@ -16,7 +16,7 @@ type NatsConfig struct {
 	URL string `yaml:"url"`
 }
 
-func (c *NatsClient) PublishLogToNats(subject string, logMsg string) error {
+func (c *NatsClient) PublishLogToNats(subject string, logMsg LogMessage) error {
 	if subject == "" {
 		return fmt.Errorf("empty subject supplied")
 	}

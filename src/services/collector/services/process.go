@@ -97,6 +97,7 @@ func (s *LogCollectorService) Start() error {
 		s.handlers[absPath] = handler
 
 		//watching the dir containing the log file
+		//note: setup single watcher per directory instead of per file in the future
 		if err := s.watcher.Add(logDir); err != nil {
 			return fmt.Errorf("failed to watch directory %s: %w", logDir, err)
 		}

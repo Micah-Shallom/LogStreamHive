@@ -18,21 +18,11 @@ type ParsedLog struct {
 	Message    string         `json:"message,omitempty"`
 	LogLevel   string         `json:"log_level,omitempty"`
 	SourceFile string         `json:"source_file,omitempty"`
-	Service    string         `json:"service,omitempty"`
-	Process    string         `json:"process,omitempty"`
-	UserID     string         `json:"user_id,omitempty"`
-	RequestID  string         `json:"request_id,omitempty"`
-	Duration   int            `json:"duration,omitempty"`
 	Extra      map[string]any `json:"extra,omitempty"`
-	
-	// Temporary fields for parsing (not exported to JSON)
-	dateTemp     string `json:"-"`
-	timeTemp     string `json:"-"`
-	timezoneTemp string `json:"-"`
 }
 
 type LogParser struct {
 	apacheRegex *regexp.Regexp
 	nginxRegex  *regexp.Regexp
-	appRegex    *regexp.Regexp
 }
+

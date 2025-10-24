@@ -31,20 +31,7 @@ func (p *LogParser) convertApacheDate(date, timeStr, timezone string) string {
 	return t.Format(time.RFC3339)
 }
 
-func (p *LogParser) convertNginxDate(dateTimeStr string) string {
-	// Format: "2025/10/24 11:02:52"
-	layout := "2006/01/02 15:04:05"
-
-	t, err := time.Parse(layout, dateTimeStr)
-	if err != nil {
-		// Return original format if parsing fails
-		return dateTimeStr
-	}
-
-	return t.Format(time.RFC3339)
-}
-
-func (p *LogParser) setField(log *ParsedLog, fieldName string, value any) bool {
+func (p *LogParser) setField(log *ParsedLog, fieldName string, value interface{}) bool {
 	strValue, _ := value.(string)
 	intValue, _ := value.(float64)
 
@@ -73,16 +60,6 @@ func (p *LogParser) setField(log *ParsedLog, fieldName string, value any) bool {
 		log.Message = strValue
 	case "log_level":
 		log.LogLevel = strValue
-	case "service":
-		log.Service = strValue
-	case "process":
-		log.Process = strValue
-	case "user_id":
-		log.UserID = strValue
-	case "request_id":
-		log.RequestID = strValue
-	case "duration":
-		log.Duration = int(intValue)
 	default:
 		return false
 	}
