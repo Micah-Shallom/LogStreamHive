@@ -67,7 +67,7 @@ services:
       - OUTPUT_FILE=/var/log/logger/service.log
       - LOG_FORMAT=json
       - ENABLE_BURSTS=true
-      - BURST_FREQUENCY=0.1
+      - BURST_FREQUENCY=0.3
       - BURST_MULTIPLIER=5
       - BURST_DURATION=3
     ports:
