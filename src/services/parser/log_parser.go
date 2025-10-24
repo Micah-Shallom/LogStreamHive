@@ -171,7 +171,7 @@ func (p *LogParser) parseJSONLog(logLine string) ParsedLog {
 		} else {
 			// Try to set directly on the struct
 			if !p.setField(&result, key, value) {
-				// If not a standard field, add to Extra
+				// If not a standard field, ad2d to Extra
 				result.Extra[key] = value
 			}
 		}

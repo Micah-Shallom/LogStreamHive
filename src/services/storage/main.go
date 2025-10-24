@@ -16,13 +16,14 @@ func main() {
 
 	flag.Parse()
 
+	interval := time.Duration(float64(time.Second) * (*intervalSecs))
+
 	storage, err := NewLogStorage(
 		*inputDir,
 		*storageDir,
 		*rotationSize,
 		*rotationHours,
-		time.Duration(time.Duration(float64(time.Second)*(*intervalSecs))),
-	)
+		interval,)
 	if err != nil {
 		fmt.Printf("Failed to initialize storage: %v\n", err)
 		os.Exit(1)
