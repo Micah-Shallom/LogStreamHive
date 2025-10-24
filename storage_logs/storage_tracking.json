@@ -1,10 +1,11 @@
 {
  "processed_files": [
+  "/var/log/data/parsed/parsed-2025-10-22T22-01-22.419.log.gz",
+  "/var/log/data/parsed/parsed-2025-10-24T11-03-26.080.log.gz",
   "/var/log/data/parsed/parsed-2025-10-22T22-04-08.642.log.gz",
   "/var/log/data/parsed/parsed-2025-10-22T20-44-57.319.log.gz",
   "/var/log/data/parsed/parsed-2025-10-22T21-34-40.483.log.gz",
-  "/var/log/data/parsed/parsed-2025-10-22T21-41-40.716.log.gz",
-  "/var/log/data/parsed/parsed-2025-10-22T22-01-22.419.log.gz"
+  "/var/log/data/parsed/parsed-2025-10-22T21-41-40.716.log.gz"
  ],
- "last_updated": "2025-10-22T22:04:09Z"
+ "last_updated": "2025-10-24T11:03:26Z"
 }
