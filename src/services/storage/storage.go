@@ -112,39 +112,73 @@ func (ls *LogStorage) updateIndex(parsedData []LogEntry, storageFile string) err
 	for i, entry := range parsedData {
 		indexKeys := make(map[string]string)
 
-		//index by timestamp (day)
-		if ts, ok := entry["timestamp"].(string); ok {
-			parts := strings.Split(ts, ":")
-			if len(parts) > 0 {
-				indexKeys["date"] = parts[0]
+		format, _ := getStringValue(entry, "format")
+
+		if ts, ok := getStringValue(entry, "timestamp"); ok {
+			if len(ts) >= 10 {
+				indexKeys["date"] = ts[:10]
 			}
 		}
 
-		//index by level
-		if level, ok := entry["log_type"].(string); ok {
-			indexKeys["level"] = level
+		if format != "" {
+			indexKeys["format"] = format
 		}
 
-		//idnex by service
-		if service, ok := entry["service"].(string); ok {
+		if extra, ok := entry["extra"].(map[string]any); ok {
+			if lineStr, ok := extra["line"].(string); ok {
+				var nestedLog map[string]any
+				if err := json.Unmarshal([]byte(lineStr), &nestedLog); err == nil {
+					// Successfully parsed nested JSON log
+					if logType, ok := getStringValue(nestedLog, "log_type"); ok {
+						indexKeys["level"] = logType
+					}
+					if service, ok := getStringValue(nestedLog, "service"); ok {
+						indexKeys["service"] = service
+					}
+					if status, ok := getIntValue(nestedLog, "status_code"); ok {
+						indexKeys["status"] = fmt.Sprintf("%d", status)
+					}
+					if userID, ok := getStringValue(nestedLog, "user_id"); ok {
+						indexKeys["user"] = userID
+					}
+				}
+			}
+		}
+
+		// Also check top-level fields (for direct parsed logs)
+		if logType, ok := getStringValue(entry, "log_type"); ok {
+			indexKeys["level"] = logType
+		}
+		if logLevel, ok := getStringValue(entry, "log_level"); ok {
+			indexKeys["level"] = logLevel
+		}
+		if service, ok := getStringValue(entry, "service"); ok {
 			indexKeys["service"] = service
 		}
-		
-		//index by status
-		if status, ok := entry["status"]; ok {
-			indexKeys["status"] = fmt.Sprint(status)
+		if status, ok := getIntValue(entry, "status_code"); ok {
+			indexKeys["status"] = fmt.Sprintf("%d", status)
+		}
+		if method, ok := getStringValue(entry, "method"); ok {
+			indexKeys["method"] = method
+		}
+		if sourceIP, ok := getStringValue(entry, "source_ip"); ok {
+			indexKeys["ip"] = sourceIP
+		}
+		if userID, ok := getStringValue(entry, "user_id"); ok {
+			indexKeys["user"] = userID
 		}
 
-
-		//create index entries
 		for keyType, keyValue := range indexKeys {
 			indexTypeDir := filepath.Join(ls.indexDir, keyType)
 			if err := os.MkdirAll(indexTypeDir, 0755); err != nil {
-				fmt.Printf("Error creating index directory: %v\n", err)
+				fmt.Printf("Error creating index directory %s: %v\n", keyType, err)
 				continue
 			}
 
-			indexFile := filepath.Join(indexTypeDir, keyValue+".idx")
+			sanitizedValue := strings.ReplaceAll(keyValue, "/", "_")
+			sanitizedValue = strings.ReplaceAll(sanitizedValue, " ", "_")
+
+			indexFile := filepath.Join(indexTypeDir, sanitizedValue+".idx")
 			indexEntry := map[string]any{
 				"file": storageFile,
 				"line": i,
@@ -158,7 +192,7 @@ func (ls *LogStorage) updateIndex(parsedData []LogEntry, storageFile string) err
 
 			f, err := os.OpenFile(indexFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				fmt.Printf("Error opening index file: %v\n", err)
+				fmt.Printf("Error opening index file %s: %v\n", indexFile, err)
 				continue
 			}
 
@@ -171,6 +205,8 @@ func (ls *LogStorage) updateIndex(parsedData []LogEntry, storageFile string) err
 			f.Close()
 		}
 	}
+
+	fmt.Printf("Created indexes: %v\n", getIndexKeys(parsedData))
 	return nil
 }
 
@@ -182,7 +218,6 @@ func (ls *LogStorage) Run() {
 
 	ticker := time.NewTicker(ls.interval)
 	defer ticker.Stop()
-
 
 	for range ticker.C {
 		// Check for new parsed log files
@@ -201,7 +236,7 @@ func (ls *LogStorage) Run() {
 				continue
 			}
 
-			if strings.HasSuffix(entry.Name(), ".json") {
+			if strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".log") {
 				continue
 			}
 
@@ -212,6 +247,7 @@ func (ls *LogStorage) Run() {
 			ls.processedMutex.RUnlock()
 
 			if processed {
+				fmt.Println("Already processed file:", filePath)
 				continue
 			}
 

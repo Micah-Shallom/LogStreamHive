@@ -60,6 +60,12 @@ func NewLogFileHandler(outputDir, outputFile, subject string) *LogFileHandler {
 }
 
 func (h *LogFileHandler) ProcessLog(logLine string) error {
+	logLine = strings.TrimSpace(logLine)
+	
+	if len(logLine) >= 2 && logLine[0] == '"' && logLine[len(logLine)-1] == '"' {
+		logLine = logLine[1 : len(logLine)-1]
+		logLine = strings.ReplaceAll(logLine, `\"`, `"`)
+	}
 
 	parsedLog := h.parser.Parse(strings.TrimSpace(logLine))
 

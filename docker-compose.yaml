@@ -1,6 +1,16 @@
 version: "3.9"
 
 services:
+
+  query:
+    build:
+      context: ./src/services/query
+    volumes:
+      - ./storage_logs:/var/log/data/storage
+    depends_on:
+      - storage
+    command: ./log_query --storage-dir /var/log/data/storage --index-type level --index-value INFO
+
   storage: 
     build:
       context: ./src/services/storage

@@ -7,19 +7,19 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o log_processing_service .
+RUN go build -o log_parser .
 
 FROM alpine:latest
 
 WORKDIR /app
 
-COPY --from=builder /app/log_processing_service .
+COPY --from=builder /app/log_parser .
 
 RUN mkdir -p /logs /parsed_logs
 
 ENV LOG_DIR=/logs
 ENV PARSED_LOG_DIR=/parsed_logs
 
-RUN chmod +x /app/log_processing_service
+RUN chmod +x /app/log_parser
 
-CMD ["./log_processing_service"]
+CMD ["./log_parser"]

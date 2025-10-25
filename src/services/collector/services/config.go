@@ -87,12 +87,12 @@ func (h *LogFileHandler) CollectNewLogs(logger *log.Logger) error {
 			}
 
 			if h.NatsClient.NatsConn != nil {
-				logMsg := LogMessage{
-					Timestamp: time.Now().Format(time.RFC3339),
-					FilePath:  h.FilePath,
-					Line:      line,
-				}
-				if err := h.NatsClient.PublishLogToNats(h.Subject, logMsg); err != nil {
+				// logMsg := LogMessage{
+				// 	Timestamp: time.Now().Format(time.RFC3339),
+				// 	FilePath:  h.FilePath,
+				// 	Line:      line,
+				// }
+				if err := h.NatsClient.PublishLogToNats(h.Subject, line); err != nil {
 					logger.Printf("Failed to publish log to NATS: %v", err)
 				}
 			}
