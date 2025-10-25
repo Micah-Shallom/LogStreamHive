@@ -20,79 +20,20 @@ The application is composed of a Go backend and a Next.js frontend. The backend 
 
 -   **`log-generator`**: A service that generates logs at a configurable rate and format.
 -   **`log-collector`**: A service that collects logs from the `log-generator` and exposes them to the frontend.
+-   **`parser`**: A service that parses logs from various formats (e.g., apache, nginx, json) and enriches them with additional information.
+-   **`storage`**: A service that stores and manages log data, including indexing and rotation.
+-   **`query`**: A service that provides a command-line interface for searching and filtering logs.
 -   **`centrifugo`**: A real-time messaging server that streams logs to the frontend.
 
 The frontend is a Next.js application that provides a web interface for viewing and filtering logs.
 
 ## Quick Start
 
-### Prerequisites
-
--   Node.js 18+
--   Go 1.21+
--   Docker (optional)
-
-### Running Locally
-
-1.  Start the logger service:
-
-    ```bash
-    cd src/services/generator
-    go run main.go
-    ```
-
-2.  Start the collector service:
-
-    ```bash
-    cd src/services/collector
-    go run main.go
-    ```
-
-3.  Launch the web interface:
-
-    ```bash
-    cd client
-    pnpm install
-    pnpm run dev
-    ```
-
-4.  Access the web interface at `http://localhost:3000`
-
-### Docker Deployment
+The recommended way to run the project is with Docker.
 
 ```bash
 docker compose up -d
 ```
-
-## Configuration
-
-### `log-generator`
-
-| Environment Variable | Description | Default |
-| -------------------- | ---------------------------------------- | --------- |
-| `LOG_RATE` | The number of logs to generate per second | `10` |
-| `CONSOLE_OUTPUT` | Whether to output logs to the console | `true` |
-| `OUTPUT_FILE` | The file to output logs to | `/var/log/logger/service.log` |
-| `LOG_FORMAT` | The format of the logs (json, text) | `json` |
-| `ENABLE_BURSTS` | Whether to enable log bursts | `true` |
-| `BURST_FREQUENCY` | The frequency of log bursts | `0.1` |
-| `BURST_MULTIPLIER` | The multiplier for the log rate during bursts | `5` |
-| `BURST_DURATION` | The duration of log bursts in seconds | `3` |
-
-### `log-collector`
-
-| Environment Variable | Description | Default |
-| -------------------- | ---------------------------------------- | --------- |
-| `CONFIG_PATH` | The path to the configuration file | `/app/config.yml` |
-
-### Web Interface
-
-| Environment Variable | Description | Default |
-| ----------------------------- | ---------------------------------------- | ----------------------------- |
-| `NEXT_PUBLIC_GENERATOR_API_URL` | The URL of the `log-generator` service | `http://localhost:8080` |
-| `NEXT_PUBLIC_COLLECTOR_API_URL` | The URL of the `log-collector` service | `http://localhost:8081` |
-| `NEXT_PUBLIC_WS_URL` | The URL of the Centrifugo WebSocket server | `ws://localhost:8000/connection/websocket` |
-| `PORT` | Web interface port | `3000` |
 
 ## API Documentation
 
