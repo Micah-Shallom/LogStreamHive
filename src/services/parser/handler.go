@@ -3,28 +3,69 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type LogFileHandler struct {
-	parser    *LogParser
-	outputDir string
-	subject   string
+	parser     *LogParser
+	outputDir  string
+	outputFile string
+	subject    string
+	logger     *log.Logger
 }
 
-func NewLogFileHandler(outputDir, subject string) *LogFileHandler {
+func NewLogFileHandler(outputDir, outputFile, subject string) *LogFileHandler {
+	var writers []io.Writer
+
+	if outputFile != "" {
+		dir := filepath.Dir(outputFile)
+
+		if err := os.MkdirAll(dir, 0777); err != nil {
+			log.Fatalf("error creating output directory: %v", err)
+		}
+
+		if err := os.Chmod(dir, 0777); err != nil {
+			log.Fatalf("error setting permissions on output directory: %v", err)
+		}
+
+		if _, err := os.Stat(outputFile); err == nil {
+			_ = os.Chmod(outputFile, 0777)
+		}
+
+		logfile := &lumberjack.Logger{
+			Filename:   outputFile,
+			MaxSize:    1, // megabytes
+			MaxBackups: 3,
+			MaxAge:     28,   //days
+			Compress:   true, // disabled by default
+		}
+
+		writers = append(writers, logfile)
+	}
+
+	multi := io.MultiWriter(writers...)
 	return &LogFileHandler{
-		parser:    NewLogParser(),
-		outputDir: outputDir,
-		subject:   subject,
+		parser:     NewLogParser(),
+		outputDir:  outputDir,
+		outputFile: outputFile,
+		subject:    subject,
+		logger:     log.New(multi, "", 0),
 	}
 }
 
 func (h *LogFileHandler) ProcessLog(logLine string) error {
+	logLine = strings.TrimSpace(logLine)
+	
+	if len(logLine) >= 2 && logLine[0] == '"' && logLine[len(logLine)-1] == '"' {
+		logLine = logLine[1 : len(logLine)-1]
+		logLine = strings.ReplaceAll(logLine, `\"`, `"`)
+	}
 
 	parsedLog := h.parser.Parse(strings.TrimSpace(logLine))
 
@@ -36,36 +77,11 @@ func (h *LogFileHandler) ProcessLog(logLine string) error {
 }
 
 func (h *LogFileHandler) outputParsedLogLine(parsedLog ParsedLog) error {
-
-
-	if err := os.MkdirAll(h.outputDir, 0755); err != nil {
-		return fmt.Errorf("error creating output directory: %w", err)
-	}
-
-	fileName := fmt.Sprintf("parsed_logs_%s.json", time.Now().Format("2006-01-02"))
-	outputFile := filepath.Join(h.outputDir, fileName)
-
-	//open file in append mode
-	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logEntryBytes, err := json.Marshal(parsedLog)
 	if err != nil {
-		return fmt.Errorf("error opening output file: %w", err)
-	}
-	defer file.Close()
-
-	jsonData, err := json.Marshal(parsedLog)
-	if err != nil {
-		return fmt.Errorf("error marshalling log to json: %w", err)
+		return fmt.Errorf("error marshaling parsed log to JSON: %v", err)
 	}
 
-	if _, err := file.Write(append(jsonData, '\n')); err != nil {
-		return fmt.Errorf("error writing to output file: %w", err)
-	}
-
-	jsonStr := string(jsonData)
-	if len(jsonStr) > 100 {
-		jsonStr = jsonStr[:100] + "..."
-	}
-	fmt.Printf("parsed log: %s\n", jsonStr)
-
+	h.logger.Println(string(logEntryBytes))
 	return nil
 }

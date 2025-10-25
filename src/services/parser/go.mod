@@ -3,8 +3,8 @@ module parser
 go 1.24.4
 
 require (
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/nats-io/nats.go v1.47.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

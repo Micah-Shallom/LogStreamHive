@@ -8,8 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -22,6 +20,23 @@ type LogGenerator struct {
 	InBurstMode  bool
 	BurstEndTime time.Time
 }
+
+var sampleData = map[string][]string{
+	"ip":       {"192.168.1.1", "10.0.0.2", "172.16.254.1", "8.8.8.8", "1.1.1.1", "203.0.113.45", "198.51.100.23"},
+	"endpoint": {"users", "products", "orders", "auth", "search", "health", "api/v1", "dashboard", "settings"},
+	"process":  {"worker1", "worker2", "worker3", "main", "background", "scheduler"},
+	"method":   {"GET", "POST", "PUT", "DELETE", "PATCH"},
+	"protocol": {"HTTP/1.1", "HTTP/2.0"},
+	"useragent": {
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+		"curl/7.68.0",
+		"PostmanRuntime/7.28.4",
+	},
+}
+
+var statusCodes = []int{200, 200, 200, 201, 204, 301, 304, 400, 401, 403, 404, 500, 502, 503}
+var responseSizes = []int{100, 250, 500, 1024, 2048, 4096, 8192, 10240, 15360, 20480}
 
 func NewLogGenerator(cfg Config) *LogGenerator {
 	var writers []io.Writer
@@ -87,9 +102,71 @@ func (lg *LogGenerator) selectLogType() string {
 	return "INFO"
 }
 
-func (lg *LogGenerator) generateLogMessage() string {
-	logType := lg.selectLogType()
+func (lg *LogGenerator) generateApacheLog() string {
+	ip := sampleData["ip"][rand.Intn(len(sampleData["ip"]))]
+	timestamp := time.Now().Format("02/Jan/2006:15:04:05 -0700")
+	method := sampleData["method"][rand.Intn(len(sampleData["method"]))]
+	endpoint := sampleData["endpoint"][rand.Intn(len(sampleData["endpoint"]))]
+	protocol := sampleData["protocol"][rand.Intn(len(sampleData["protocol"]))]
+	status := statusCodes[rand.Intn(len(statusCodes))]
+	size := responseSizes[rand.Intn(len(responseSizes))]
+	referer := "-"
+	userAgent := sampleData["useragent"][rand.Intn(len(sampleData["useragent"]))]
 
+	return fmt.Sprintf(`%s - - [%s] "%s /%s %s" %d %d "%s" "%s"`,
+		ip, timestamp, method, endpoint, protocol, status, size, referer, userAgent)
+}
+
+func (lg *LogGenerator) generateNginxLog() string {
+	timestamp := time.Now().Format("2006/01/02 15:04:05")
+	level := lg.selectLogType()
+	process := sampleData["process"][rand.Intn(len(sampleData["process"]))]
+
+	// Map log types to nginx-style levels
+	nginxLevel := map[string]string{
+		"DEBUG":    "debug",
+		"INFO":     "info",
+		"WARNING":  "warn",
+		"ERROR":    "error",
+		"CRITICAL": "crit",
+	}[level]
+
+	userID := fmt.Sprintf("user-%d", rand.Intn(9000)+1000)
+	lg.updateUserSession(userID)
+	message := lg.createMessageFromPattern(level, userID)
+
+	return fmt.Sprintf("%s [%s] %s: %s",
+		timestamp, nginxLevel, process, message)
+}
+
+func (lg *LogGenerator) generateLogMessage() string {
+	generators := []func() string{
+		lg.generateApacheLog,
+		lg.generateAppLog,
+		lg.generateNginxLog,
+		lg.generateJSONLog,
+	}
+
+	index := rand.Intn(len(generators))
+
+	return generators[index]()
+}
+
+func (lg *LogGenerator) generateAppLog() string {
+	logType := lg.selectLogType()
+	serviceName := lg.cfg.Services[rand.Intn(len(lg.cfg.Services))]
+	userID := fmt.Sprintf("user-%d", rand.Intn(9000)+1000)
+	timestamp := time.Now().Format(time.RFC3339)
+
+	lg.updateUserSession(userID)
+	message := lg.createMessageFromPattern(logType, userID)
+
+	return fmt.Sprintf("[%s] %s [%s] %s",
+		timestamp, logType, serviceName, message)
+}
+
+func (lg *LogGenerator) generateJSONLog() string {
+	logType := lg.selectLogType()
 	serviceName := lg.cfg.Services[rand.Intn(len(lg.cfg.Services))]
 	userID := fmt.Sprintf("user-%d", rand.Intn(9000)+1000)
 	requestID := fmt.Sprintf("req-%d-%d", time.Now().Unix(), rand.Intn(9000)+1000)
@@ -109,23 +186,11 @@ func (lg *LogGenerator) generateLogMessage() string {
 		Message:   message,
 	}
 
-	switch lg.cfg.LogFormat {
-	case "json":
-		data, err := json.Marshal(log_entry)
-		if err != nil {
-			panic("unable to marshal log entry")
-		}
-		return string(data)
-	case "csv":
-		values := []string{
-			timestamp, logType, serviceName, userID, requestID,
-			strconv.Itoa(duration), message,
-		}
-		return strings.Join(values, ",")
-	default:
-		return fmt.Sprintf("%s [%s] %s [%s] [%s] (%dms): %s",
-			timestamp, logType, serviceName, userID, requestID, duration, message)
+	data, err := json.Marshal(log_entry)
+	if err != nil {
+		panic("unable to marshal log entry")
 	}
+	return string(data)
 }
 
 func (lg *LogGenerator) Run(duration float64) {
@@ -161,6 +226,7 @@ func (lg *LogGenerator) Run(duration float64) {
 		if currentRate <= 0 {
 			currentRate = 1.0
 		}
+		
 		if lg.InBurstMode {
 			currentRate = currentRate * float64(lg.cfg.BurstMultiplier)
 		}
@@ -171,7 +237,7 @@ func (lg *LogGenerator) Run(duration float64) {
 		}
 
 		LogEntry := lg.generateLogMessage()
-		lg.logger.Println(LogEntry)
+		lg.logger.Println(LogEntry) //this is where the log is actually written
 		count++
 
 		if duration > 0 && time.Since(start).Seconds() >= duration {

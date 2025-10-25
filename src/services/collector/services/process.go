@@ -7,42 +7,11 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sync"
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nats-io/nats.go"
 )
-
-type LogFileHandler struct {
-	FilePath         string
-	LastPosition     int64
-	Mu               sync.Mutex
-	Logger           *log.Logger
-	CentrifugoClient *CentrifugoClient
-	ChannelID        string
-	NatsClient       *NatsClient
-	Subject          string
-}
-
-type LogMessage struct {
-	Timestamp string `json:"timestamp"`
-	FilePath  string `json:"file_path"`
-	Line      string `json:"line"`
-}
-
-type LogCollectorService struct {
-	config           Config
-	handlers         map[string]*LogFileHandler
-	watcher          *fsnotify.Watcher
-	logger           *log.Logger
-	ctx              context.Context
-	cancel           context.CancelFunc
-	wg               sync.WaitGroup
-	centrifugoClient CentrifugoClient
-	natsClient       *NatsClient
-	subject          string
-}
 
 func NewLogCollectorService(config Config, logger *log.Logger, subject string) (*LogCollectorService, error) {
 	ctx, cancel := context.WithCancel(context.Background())

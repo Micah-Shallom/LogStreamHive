@@ -11,13 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	LogFiles      []string         `yaml:"log_files" json:"log_files"`
-	CheckInterval float64          `yaml:"check_interval" json:"check_interval"`
-	Centrifugo    CentrifugoConfig `yaml:"centrifugo" json:"centrifugo"`
-	ChannelID     string           `yaml:"channel_id" json:"channel_id"`
-	Nats          NatsConfig       `yaml:"nats"`
-}
+
 
 func NewLogFileHandler(filePath string, logger *log.Logger, centrifugoClient *CentrifugoClient, natsClient *NatsClient, channelID, subject string) (*LogFileHandler, error) {
 	handler := &LogFileHandler{
@@ -93,12 +87,12 @@ func (h *LogFileHandler) CollectNewLogs(logger *log.Logger) error {
 			}
 
 			if h.NatsClient.NatsConn != nil {
-				logMsg := LogMessage{
-					Timestamp: time.Now().Format(time.RFC3339),
-					FilePath:  h.FilePath,
-					Line:      line,
-				}
-				if err := h.NatsClient.PublishLogToNats(h.Subject, logMsg); err != nil {
+				// logMsg := LogMessage{
+				// 	Timestamp: time.Now().Format(time.RFC3339),
+				// 	FilePath:  h.FilePath,
+				// 	Line:      line,
+				// }
+				if err := h.NatsClient.PublishLogToNats(h.Subject, line); err != nil {
 					logger.Printf("Failed to publish log to NATS: %v", err)
 				}
 			}
