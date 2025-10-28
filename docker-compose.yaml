@@ -2,16 +2,35 @@ version: "3.9"
 
 services:
 
+  tcp-server:
+    container_name: tcp-server
+    build:
+      context: ./src/services/tcp-server
+    ports:
+      - "9000:9000"
+    command: ./tcp_server --host 0.0.0.0 --port 9000 --buffer-size 4096 --nats-url nats://nats_server:4222 --nats-subject logs.raw
+    networks:
+      - app_network
+    depends_on:
+      nats:
+        condition: service_started
+    restart: unless-stopped
+
+
   query:
+    container_name: query-server
     build:
       context: ./src/services/query
     volumes:
       - ./storage_logs:/var/log/data/storage
     depends_on:
       - storage
+    networks:
+      - app_network
     command: ./log_query --storage-dir /var/log/data/storage --index-type level --index-value INFO
 
-  storage: 
+  storage:
+    container_name: storage_server
     build:
       context: ./src/services/storage
     volumes:
@@ -19,6 +38,8 @@ services:
       - ./storage_logs:/var/log/data/storage
     environment:
       - NATS_URL=nats://nats_server:4222
+    networks:
+      - app_network
     command: ./storage --input-dir /var/log/data/parsed --storage-dir /var/log/data/storage --rotation-size 1 --rotation-hours 1 --interval 5
     depends_on:
       - parser
@@ -32,6 +53,7 @@ services:
     networks:
       - app_network
     restart: unless-stopped
+
   parser:
     build:
       context: ./src/services/parser
